@@ -9,6 +9,10 @@
   --danger-bg: #fdecec;
   --danger-border: #c43c3c;
   --focus: #f2a900;
+  --ok: #1e7b4d;
+  --warn: #9a5b00;
+  --bad: #b3261e;
+  --highlight: #fff3c4;
   color-scheme: light dark;
   font-family:
     system-ui,
@@ -31,6 +35,10 @@
     --accent-text: #0b1220;
     --danger-bg: #3a1d1d;
     --danger-border: #e06a6a;
+    --ok: #57c48c;
+    --warn: #f0b259;
+    --bad: #ff8a80;
+    --highlight: #4a3f12;
   }
 }
 
@@ -45,7 +53,7 @@ body {
 }
 
 .app {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -276,5 +284,203 @@ td {
     flex-direction: column;
     align-items: flex-start;
     margin-left: 0;
+  }
+}
+
+select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+}
+
+/* --- Import ------------------------------------------------------------------------- */
+.dropzone {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 24px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone-active {
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.upload-list {
+  margin-top: 12px;
+}
+
+.status-text.bad {
+  color: var(--bad);
+}
+
+/* Status badges: colour is decoration only — the badge text carries the meaning. */
+.badge {
+  white-space: nowrap;
+}
+
+.status-completed,
+.review-accepted,
+.review-corrected,
+.line-checked {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.status-review_required,
+.status-processing,
+.line-attention {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.status-failed,
+.status-unsupported,
+.review-rejected {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+/* --- Review workspace ----------------------------------------------------------------- */
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.review-table {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.review-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+tr[aria-selected] {
+  cursor: pointer;
+}
+
+.row-selected {
+  background: var(--highlight);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.review-side {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 8px;
+}
+
+.source-scroll {
+  overflow: auto;
+}
+
+.source-table {
+  font-size: 0.85rem;
+}
+
+.source-table th {
+  color: var(--muted);
+  text-align: right;
+}
+
+.source-current {
+  background: var(--highlight);
+}
+
+.source-current th::before {
+  content: "▶ ";
+}
+
+.source-cell-selected {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+  font-weight: 600;
+}
+
+.raw-text {
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+}
+
+.field-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.field-selected {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-values {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0;
+}
+
+.field-values dt {
+  color: var(--muted);
+}
+
+.field-values dd {
+  margin: 0;
+}
+
+.field-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.field-form .wide,
+.field-form .actions,
+.field-form .notice {
+  grid-column: 1 / -1;
+}
+
+.reasons {
+  margin: 0 0 8px;
+  color: var(--warn);
+}
+
+.history {
+  font-size: 0.85rem;
+  padding-left: 20px;
+}
+
+@media (max-width: 960px) {
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .review-side {
+    position: static;
   }
 }

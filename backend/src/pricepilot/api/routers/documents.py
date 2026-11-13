@@ -16,6 +16,9 @@ from pricepilot.api.schemas import (
     LineOut,
     LinePageOut,
     ProcessingRunOut,
+    SourceCellOut,
+    SourceRowOut,
+    SourceWindowOut,
     decode_cursor,
     decode_ordinal_cursor,
     encode_cursor,
@@ -179,3 +182,35 @@ def start_processing(document_id: UUID, svc: ServicesDep, response: Response) ->
     if not created:
         response.status_code = status.HTTP_200_OK
     return ProcessingRunOut.of(svc.processing.get(run.id))
+
+
+@router.get(
+    "/{document_id}/source-rows",
+    response_model=SourceWindowOut,
+    summary="Строки оригинала (только чтение) для панели источника",
+)
+def source_rows(
+    document_id: UUID,
+    svc: ServicesDep,
+    first_row: Annotated[int, Query(alias="from", ge=1)],
+    last_row: Annotated[int, Query(alias="to", ge=1)],
+    sheet: Annotated[str | None, Query(max_length=255)] = None,
+) -> SourceWindowOut:
+    window = svc.source.rows(document_id, sheet=sheet, first_row=first_row, last_row=last_row)
+    return SourceWindowOut(
+        sheet=window.sheet,
+        sheets=window.sheets,
+        first_row=window.first_row,
+        last_row=window.last_row,
+        total_rows=window.total_rows,
+        rows=[
+            SourceRowOut(
+                index=row.index,
+                cells=[
+                    SourceCellOut(column=c.column, ref=c.ref, text=c.text, formula=c.formula)
+                    for c in row.cells
+                ],
+            )
+            for row in window.rows
+        ],
+    )

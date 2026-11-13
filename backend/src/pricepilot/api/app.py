@@ -29,6 +29,7 @@ from pricepilot.application.documents import DocumentService, ProcessingService
 from pricepilot.application.intake import ImportService, PipelineRunner
 from pricepilot.application.review import ReviewService
 from pricepilot.application.services import SupplierService, WorkspaceService
+from pricepilot.application.source import SourceService
 from pricepilot.config import ALLOWED_HOST_NAMES, MAX_JSON_BODY_BYTES, Settings
 from pricepilot.dip.adapters.registry import ParserRegistry
 from pricepilot.dip.limits import DEFAULT_LIMITS
@@ -82,6 +83,7 @@ def build_runtime(
         review=ReviewService(uow, correlation=correlation),
         catalog=CatalogService(uow, correlation=correlation),
         imports=ImportService(documents, processing, store, registry, limits, worker.submit),
+        source=SourceService(documents, store, registry, limits),
     )
     return Runtime(services=services, store=store, worker=worker)
 

@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiClient, type Health, type Workspace } from "./api/client";
 import { resolveConnection } from "./api/connection";
 import { ErrorNotice } from "./components/ErrorNotice";
+import { DocumentsView } from "./components/DocumentsView";
 import { SupplierPanel } from "./components/SupplierPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 
-type View = "workspaces" | "suppliers";
+type View = "workspaces" | "suppliers" | "documents";
 const ACTIVE_KEY = "pricepilot.activeWorkspace";
 
 function readActive(): string | null {
@@ -104,6 +105,16 @@ export function App() {
           >
             Поставщики
           </button>
+          <button
+            type="button"
+            aria-current={view === "documents" ? "page" : undefined}
+            disabled={!active}
+            onClick={() => {
+              setView("documents");
+            }}
+          >
+            Документы
+          </button>
         </nav>
         <p className="status" role="status">
           {health
@@ -126,6 +137,9 @@ export function App() {
         ) : null}
         {client && view === "suppliers" && active ? (
           <SupplierPanel key={active.id} client={client} workspace={active} />
+        ) : null}
+        {client && view === "documents" && active ? (
+          <DocumentsView key={active.id} client={client} workspace={active} />
         ) : null}
       </main>
     </div>

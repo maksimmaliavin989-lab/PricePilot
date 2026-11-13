@@ -13,6 +13,7 @@ from pricepilot.application.documents import DocumentService, ProcessingService
 from pricepilot.application.intake import ImportService
 from pricepilot.application.review import ReviewService
 from pricepilot.application.services import SupplierService, WorkspaceService
+from pricepilot.application.source import SourceService
 
 _IF_MATCH_RE = re.compile(r'^(?:W/)?"?(\d{1,9})"?$')
 
@@ -26,6 +27,7 @@ class Services:
     review: ReviewService
     catalog: CatalogService
     imports: ImportService
+    source: SourceService
 
 
 def services(request: Request) -> Services:

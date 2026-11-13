@@ -546,3 +546,24 @@ class ImportOut(BaseModel):
     error: ImportErrorOut | None = Field(
         description="Файл сохранён, но не будет/не может быть обработан: код и объяснение"
     )
+
+
+class SourceCellOut(BaseModel):
+    column: int
+    ref: str
+    text: str
+    formula: str | None
+
+
+class SourceRowOut(BaseModel):
+    index: int
+    cells: list[SourceCellOut]
+
+
+class SourceWindowOut(BaseModel):
+    sheet: str | None
+    sheets: list[str | None]
+    first_row: int
+    last_row: int
+    total_rows: int
+    rows: list[SourceRowOut]

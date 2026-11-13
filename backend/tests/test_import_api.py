@@ -306,3 +306,41 @@ def test_cancelled_run_is_not_processed(engine: Engine, tmp_path: Path) -> None:
     runtime.worker.submit(run.id)
     view = svc.processing.get(run.id)
     assert (view.run.status, view.counts.lines) == (RunStatus.CANCELLED, 0)
+
+
+def test_source_rows_window_matches_provenance(client: TestClient, ws: dict[str, Any]) -> None:
+    doc = upload(client, ws, LIST_1.name, LIST_1.read_bytes()).json()["document"]
+    url = f"/api/v1/documents/{doc['id']}/source-rows"
+    window = client.get(url, params={"sheet": "Прайс-лист", "from": 5, "to": 7}).json()
+    assert (window["sheet"], window["sheets"], window["total_rows"]) == (
+        "Прайс-лист",
+        ["Прайс-лист"],
+        53,
+    )
+    assert [r["index"] for r in window["rows"]] == [5, 6, 7]  # header, section, first product
+    header = window["rows"][0]["cells"]
+    assert [c["text"] for c in header] == ["№", "Наименование", "Ед. изм.", "Цена, руб."]
+    price = window["rows"][2]["cells"][3]
+    assert (price["ref"], price["text"]) == ("D7", "540")  # same cell as the line provenance
+
+    assert client.get(url, params={"sheet": "Нет", "from": 1, "to": 2}).status_code == 404
+    too_wide = client.get(url, params={"from": 1, "to": 500})
+    assert too_wide.status_code == 422
+    reversed_range = client.get(url, params={"from": 9, "to": 3})
+    assert reversed_range.status_code == 422
+
+
+def test_source_rows_csv_and_unsupported(client: TestClient, ws: dict[str, Any]) -> None:
+    csv_doc = upload(client, ws, "p.csv", "Наименование;Цена, руб.\nКлей;310\n".encode()).json()[
+        "document"
+    ]
+    window = client.get(
+        f"/api/v1/documents/{csv_doc['id']}/source-rows", params={"from": 1, "to": 2}
+    ).json()
+    assert window["sheet"] is None
+    assert window["rows"][1]["cells"][1]["ref"] == "B2"
+
+    pdf_doc = upload(client, ws, PDF.name, PDF.read_bytes()).json()["document"]
+    resp = client.get(f"/api/v1/documents/{pdf_doc['id']}/source-rows", params={"from": 1, "to": 2})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "INVALID_STATE"

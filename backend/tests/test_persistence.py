@@ -158,8 +158,9 @@ def test_failure_retry_and_cancel_update_document(svc: Services) -> None:
     assert svc.documents.get(s.document.id).status is DocumentStatus.PROCESSING
     svc.processing.cancel(run.id)
     assert svc.documents.get(s.document.id).status is DocumentStatus.STORED
-    with pytest.raises(InvalidStateError):
-        svc.processing.retry(run.id)
+    resumed = svc.processing.retry(run.id)
+    assert (resumed.status, resumed.attempt) == (RunStatus.QUEUED, 3)
+    assert svc.documents.get(s.document.id).status is DocumentStatus.PROCESSING
 
 
 def test_review_correction_history_and_audit(svc: Services, engine: Engine) -> None:

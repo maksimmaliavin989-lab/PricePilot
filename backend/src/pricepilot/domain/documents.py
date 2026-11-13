@@ -274,6 +274,10 @@ class ProcessingRun:
 
     @property
     def retryable(self) -> bool:
+        """A temporary failure, or a run the user cancelled themselves, can be re-queued.
+        Permanent failures (e.g. UNSUPPORTED_FORMAT) are never offered for retry."""
+        if self.status is RunStatus.CANCELLED:
+            return True
         return self.status is RunStatus.FAILED and self.error is not None and self.error.retryable
 
     def advance(
@@ -318,7 +322,8 @@ class ProcessingRun:
         )
 
     def retry(self, *, now: datetime) -> ProcessingRun:
-        """Manual retry of a retryable failure: re-queues the same run (attempt + 1)."""
+        """Manual retry of a retryable failure or a cancelled run: re-queues the same run
+        (attempt + 1)."""
         if not self.retryable:
             raise InvalidTransitionError("processing_run", self.status, RunStatus.QUEUED)
         now = ensure_utc(now)

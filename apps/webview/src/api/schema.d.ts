@@ -162,6 +162,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{document_id}/source-rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Строки оригинала (только чтение) для панели источника */
+        get: operations["source_rows_api_v1_documents__document_id__source_rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/processing-runs/{run_id}": {
         parameters: {
             query?: never;
@@ -776,6 +793,17 @@ export interface components {
          * @enum {string}
          */
         RunStatus: "queued" | "validating" | "parsing" | "ocr" | "extracting" | "validating_result" | "review_required" | "completed" | "failed" | "cancelled" | "retry_wait";
+        /** SourceCellOut */
+        SourceCellOut: {
+            /** Column */
+            column: number;
+            /** Ref */
+            ref: string;
+            /** Text */
+            text: string;
+            /** Formula */
+            formula: string | null;
+        };
         /** SourceLocationOut */
         SourceLocationOut: {
             /** Sheet */
@@ -794,6 +822,28 @@ export interface components {
              * @enum {string}
              */
             localization: "exact" | "approximate" | "none";
+        };
+        /** SourceRowOut */
+        SourceRowOut: {
+            /** Index */
+            index: number;
+            /** Cells */
+            cells: components["schemas"]["SourceCellOut"][];
+        };
+        /** SourceWindowOut */
+        SourceWindowOut: {
+            /** Sheet */
+            sheet: string | null;
+            /** Sheets */
+            sheets: (string | null)[];
+            /** First Row */
+            first_row: number;
+            /** Last Row */
+            last_row: number;
+            /** Total Rows */
+            total_rows: number;
+            /** Rows */
+            rows: components["schemas"]["SourceRowOut"][];
         };
         /** SupplierCreate */
         SupplierCreate: {
@@ -2393,6 +2443,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProcessingRunOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    source_rows_api_v1_documents__document_id__source_rows_get: {
+        parameters: {
+            query: {
+                from: number;
+                to: number;
+                sheet?: string | null;
+            };
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceWindowOut"];
                 };
             };
             /** @description Bad Request */

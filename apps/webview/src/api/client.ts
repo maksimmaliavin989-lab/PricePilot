@@ -9,6 +9,17 @@ export type Supplier = Schemas["SupplierOut"];
 export type SupplierCreate = Schemas["SupplierCreate"];
 export type SupplierPatch = Schemas["SupplierPatchIn"];
 export type Health = Schemas["HealthOut"];
+export type SourceDocument = Schemas["DocumentOut"];
+export type ImportResult = Schemas["ImportOut"];
+export type ProcessingRun = Schemas["ProcessingRunOut"];
+export type Line = Schemas["LineOut"];
+export type Field = Schemas["FieldOut"];
+export type FieldRevision = Schemas["FieldRevisionOut"];
+export type SourceWindow = Schemas["SourceWindowOut"];
+export type Unit = Schemas["UnitOut"];
+export type DocumentStatus = SourceDocument["status"];
+export type RunStatus = ProcessingRun["status"];
+export type ReviewStatus = Field["review_status"];
 type ErrorEnvelope = Schemas["ErrorResponse"];
 
 export interface Page<T> {
@@ -83,6 +94,8 @@ interface RequestOptions {
   query?: Query;
   body?: unknown;
   version?: number;
+  /** Raw request body (file upload); sent as-is with the given headers. */
+  raw?: { data: Blob; headers: Record<string, string> };
 }
 
 export function buildUrl(baseUrl: string, path: string, query?: Query): string {
@@ -108,8 +121,10 @@ export class ApiClient {
     if (this.connection.token) headers.Authorization = `Bearer ${this.connection.token}`;
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.version !== undefined) headers["If-Match"] = `"${options.version}"`;
+    if (options.raw) Object.assign(headers, options.raw.headers);
     const init: RequestInit = { method, headers, cache: "no-store", credentials: "omit" };
     if (options.body !== undefined) init.body = JSON.stringify(options.body);
+    if (options.raw) init.body = options.raw.data;
 
     let response: Response;
     try {
@@ -159,5 +174,102 @@ export class ApiClient {
 
   updateSupplier(id: string, version: number, body: SupplierPatch): Promise<Supplier> {
     return this.request("PATCH", `/suppliers/${encodeURIComponent(id)}`, { body, version });
+  }
+
+  // --- Documents and processing --------------------------------------------------------
+
+  listDocuments(workspaceId: string, cursor?: string): Promise<Page<SourceDocument>> {
+    return this.request("GET", "/documents", {
+      query: { workspace_id: workspaceId, cursor, limit: 200 },
+    });
+  }
+
+  getDocument(id: string): Promise<SourceDocument> {
+    return this.request("GET", `/documents/${encodeURIComponent(id)}`);
+  }
+
+  /** Uploads the file bytes as the request body; the name travels percent-encoded. */
+  uploadDocument(
+    file: Blob & { name: string },
+    params: { workspaceId: string; supplierId?: string; source: "file_picker" | "drag_drop" },
+  ): Promise<ImportResult> {
+    return this.request("POST", "/documents", {
+      query: {
+        workspace_id: params.workspaceId,
+        supplier_id: params.supplierId,
+        source: params.source,
+      },
+      raw: {
+        data: file,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-File-Name": encodeURIComponent(file.name),
+        },
+      },
+    });
+  }
+
+  reprocessDocument(id: string): Promise<ProcessingRun> {
+    return this.request("POST", `/documents/${encodeURIComponent(id)}/processing-runs`);
+  }
+
+  getRun(id: string): Promise<ProcessingRun> {
+    return this.request("GET", `/processing-runs/${encodeURIComponent(id)}`);
+  }
+
+  cancelRun(id: string): Promise<ProcessingRun> {
+    return this.request("POST", `/processing-runs/${encodeURIComponent(id)}/cancel`);
+  }
+
+  retryRun(id: string): Promise<ProcessingRun> {
+    return this.request("POST", `/processing-runs/${encodeURIComponent(id)}/retry`);
+  }
+
+  async listAllLines(documentId: string, runId?: string): Promise<Line[]> {
+    const lines: Line[] = [];
+    let cursor: string | undefined;
+    do {
+      const page: Page<Line> = await this.request(
+        "GET",
+        `/documents/${encodeURIComponent(documentId)}/lines`,
+        { query: { run_id: runId, cursor, limit: 200 } },
+      );
+      lines.push(...page.items);
+      cursor = page.next_cursor ?? undefined;
+    } while (cursor);
+    return lines;
+  }
+
+  sourceRows(
+    documentId: string,
+    params: { sheet: string | null; from: number; to: number },
+  ): Promise<SourceWindow> {
+    return this.request("GET", `/documents/${encodeURIComponent(documentId)}/source-rows`, {
+      query: { sheet: params.sheet, from: params.from, to: params.to },
+    });
+  }
+
+  // --- Review ----------------------------------------------------------------------------
+
+  correctField(
+    id: string,
+    body: { value: Record<string, string>; reason: string | null; expected_revision: number },
+  ): Promise<Field> {
+    return this.request("PATCH", `/extracted-fields/${encodeURIComponent(id)}`, { body });
+  }
+
+  decideField(
+    id: string,
+    body: { decision: "accept" | "reject"; reason: string | null; expected_revision: number },
+  ): Promise<Field> {
+    return this.request("POST", `/extracted-fields/${encodeURIComponent(id)}/decision`, { body });
+  }
+
+  fieldRevisions(id: string): Promise<FieldRevision[]> {
+    return this.request("GET", `/extracted-fields/${encodeURIComponent(id)}/revisions`);
+  }
+
+  listUnits(): Promise<Unit[]> {
+    return this.request("GET", "/units");
   }
 }

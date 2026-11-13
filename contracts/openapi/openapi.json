@@ -2006,6 +2006,166 @@
         }
       }
     },
+    "/api/v1/documents/{document_id}/source-rows": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Строки оригинала (только чтение) для панели источника",
+        "operationId": "source_rows_api_v1_documents__document_id__source_rows_get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "To"
+            }
+          },
+          {
+            "name": "sheet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 255
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sheet"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceWindowOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/v1/processing-runs/{run_id}": {
       "get": {
         "tags": [
@@ -4713,6 +4873,41 @@
         ],
         "title": "RunStatus"
       },
+      "SourceCellOut": {
+        "properties": {
+          "column": {
+            "type": "integer",
+            "title": "Column"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column",
+          "ref",
+          "text",
+          "formula"
+        ],
+        "title": "SourceCellOut"
+      },
       "SourceLocationOut": {
         "properties": {
           "sheet": {
@@ -4801,6 +4996,85 @@
           "localization"
         ],
         "title": "SourceLocationOut"
+      },
+      "SourceRowOut": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCellOut"
+            },
+            "type": "array",
+            "title": "Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "cells"
+        ],
+        "title": "SourceRowOut"
+      },
+      "SourceWindowOut": {
+        "properties": {
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "sheets": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Sheets"
+          },
+          "first_row": {
+            "type": "integer",
+            "title": "First Row"
+          },
+          "last_row": {
+            "type": "integer",
+            "title": "Last Row"
+          },
+          "total_rows": {
+            "type": "integer",
+            "title": "Total Rows"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRowOut"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sheet",
+          "sheets",
+          "first_row",
+          "last_row",
+          "total_rows",
+          "rows"
+        ],
+        "title": "SourceWindowOut"
       },
       "SupplierCreate": {
         "properties": {

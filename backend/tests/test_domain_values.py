@@ -151,6 +151,8 @@ def test_fail_cancel_and_retry_rules() -> None:
     assert cancelled.error.code == "CANCELLED"
     with pytest.raises(InvalidTransitionError):
         cancelled.cancel(now=NOW)
+    resumed = cancelled.retry(now=NOW)  # the user's own cancellation is not a dead end
+    assert (resumed.status, resumed.attempt, resumed.error) == (RunStatus.QUEUED, 2, None)
     with pytest.raises(DomainValidationError):
         run.fail(code="bad code", retryable=True, now=NOW)
 
