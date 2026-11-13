@@ -12,6 +12,7 @@ import pytest
 from pricepilot.domain.catalog import IdentifierScheme, Product, ProductIdentifier
 from pricepilot.domain.common import DomainValidationError
 from pricepilot.domain.matching import (
+    MATCHER_VERSION,
     AutoLinkPolicy,
     CatalogEntry,
     DecisionKind,
@@ -19,6 +20,7 @@ from pricepilot.domain.matching import (
     MatchHistory,
     NameFeatures,
     OfferView,
+    ThresholdCalibration,
     candidates,
     fold,
     score_candidate,
@@ -326,16 +328,51 @@ def test_revoke_without_decision_and_foreign_candidate() -> None:
         )
 
 
-def test_auto_link_is_off_by_default_and_needs_identifier_evidence() -> None:
+def calibration(**kw: object) -> ThresholdCalibration:
+    args: dict[str, object] = {
+        "dataset": "обезличенные прайсы пилота, 12 поставщиков",
+        "real_anonymised": True,
+        "matcher_version": MATCHER_VERSION,
+        "lines_evaluated": 1200,
+        "wrong_links_at_threshold": 0,
+        "approved_by": "user:owner",
+        "approved_at": NOW,
+    }
+    args.update(kw)
+    return ThresholdCalibration.create(**args)  # type: ignore[arg-type]
+
+
+def test_auto_link_stays_off_without_a_real_data_calibration() -> None:
+    p = product("Штукатурка гипсовая, мешок 30 кг")
+    e = entry(p, (IdentifierScheme.SUPPLIER_SKU, "СМ-101", str(SUPPLIER_A)))
+    by_sku = offer("Штукатурка гипсовая, мешок 30 кг", supplier_sku="СМ-101")
+    strong = score_candidate(by_sku, e)
+    assert strong.score >= Decimal("0.9")
+    # Default, and a bare threshold without calibration: nothing is linked.
+    assert not AutoLinkPolicy().enabled
+    assert AutoLinkPolicy().apply(MatchHistory(by_sku.offer_id), strong, NOW) is None
+    bare = AutoLinkPolicy(threshold=Decimal("0.80"))
+    assert not bare.enabled
+    assert bare.apply(MatchHistory(by_sku.offer_id), strong, NOW) is None
+    # Synthetic data or too few lines cannot calibrate a threshold.
+    with pytest.raises(DomainValidationError):
+        calibration(real_anonymised=False)
+    with pytest.raises(DomainValidationError):
+        calibration(lines_evaluated=50)
+    # A calibration of another matcher version does not enable the policy.
+    outdated = AutoLinkPolicy.calibrated(Decimal("0.80"), calibration(matcher_version="match-0"))
+    assert not outdated.enabled
+    with pytest.raises(DomainValidationError):
+        AutoLinkPolicy.calibrated(Decimal("0.2"), calibration())
+
+
+def test_calibrated_auto_link_needs_identifier_evidence() -> None:
     p = product("Штукатурка гипсовая, мешок 30 кг")
     e = entry(p, (IdentifierScheme.SUPPLIER_SKU, "СМ-101", str(SUPPLIER_A)))
     by_sku = offer("Штукатурка гипсовая, мешок 30 кг", supplier_sku="СМ-101")
     by_name = offer("Штукатурка гипсовая, мешок 30 кг")
-    assert (
-        AutoLinkPolicy().apply(MatchHistory(by_sku.offer_id), score_candidate(by_sku, e), NOW)
-        is None
-    )
-    policy = AutoLinkPolicy(threshold=Decimal("0.80"))
+    policy = AutoLinkPolicy.calibrated(Decimal("0.80"), calibration())
+    assert policy.enabled
     linked = policy.apply(MatchHistory(by_sku.offer_id), score_candidate(by_sku, e), NOW)
     assert linked is not None
     assert linked.actor.startswith("rule:auto-link@")

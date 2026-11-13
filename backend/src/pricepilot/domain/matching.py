@@ -526,18 +526,94 @@ class MatchHistory:
         return decision
 
 
+MIN_CALIBRATION_LINES = 200
+
+
+@dataclass(frozen=True, slots=True)
+class ThresholdCalibration:
+    """Evidence that an auto-link threshold was checked on real, anonymised price lists.
+
+    Synthetic fixtures do not qualify. A calibration is tied to the matcher version that was
+    measured: any change of weights or features invalidates it."""
+
+    dataset: str  # which anonymised price lists, where they are kept
+    real_anonymised: bool
+    matcher_version: str
+    lines_evaluated: int
+    wrong_links_at_threshold: int  # links above the threshold that a reviewer rejected
+    approved_by: str
+    approved_at: datetime
+
+    @staticmethod
+    def create(
+        *,
+        dataset: str,
+        real_anonymised: bool,
+        matcher_version: str,
+        lines_evaluated: int,
+        wrong_links_at_threshold: int,
+        approved_by: str,
+        approved_at: datetime,
+    ) -> ThresholdCalibration:
+        if not real_anonymised:
+            raise DomainValidationError(
+                "calibration.real_anonymised",
+                "Порог проверяется на реальных обезличенных прайсах, не на синтетических.",
+            )
+        if lines_evaluated < MIN_CALIBRATION_LINES:
+            raise DomainValidationError(
+                "calibration.lines_evaluated",
+                f"Для проверки порога нужно не меньше {MIN_CALIBRATION_LINES} строк.",
+            )
+        if wrong_links_at_threshold < 0 or wrong_links_at_threshold > lines_evaluated:
+            raise DomainValidationError("calibration.wrong_links_at_threshold", "Некорректно.")
+        dataset_text = optional_text(dataset, "calibration.dataset", 500)
+        approver = optional_text(approved_by, "calibration.approved_by", 200)
+        if dataset_text is None or approver is None:
+            raise DomainValidationError("calibration", "Укажите набор данных и кто утвердил.")
+        return ThresholdCalibration(
+            dataset_text,
+            True,
+            matcher_version,
+            lines_evaluated,
+            wrong_links_at_threshold,
+            approver,
+            ensure_utc(approved_at),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class AutoLinkPolicy:
-    """FR-09: automatic linking only above a configured threshold, and only with identifier
-    evidence (GTIN or this supplier's SKU). Disabled by default."""
+    """FR-09: automatic linking. **Off** unless a threshold comes with a calibration on real
+    anonymised price lists for the current matcher version; even then it links only with
+    identifier evidence (GTIN or this supplier's SKU) and never repeats a rejection."""
 
     threshold: Decimal | None = None
+    calibration: ThresholdCalibration | None = None
     name: str = "auto-link"
+
+    @staticmethod
+    def calibrated(threshold: Decimal, calibration: ThresholdCalibration) -> AutoLinkPolicy:
+        if not Decimal("0.5") <= threshold <= 1:
+            raise DomainValidationError("threshold", "Порог автосвязывания — от 0.5 до 1.")
+        return AutoLinkPolicy(threshold, calibration)
+
+    @property
+    def enabled(self) -> bool:
+        return (
+            self.threshold is not None
+            and self.calibration is not None
+            and self.calibration.matcher_version == MATCHER_VERSION
+        )
 
     def apply(
         self, history: MatchHistory, candidate: Candidate, now: datetime
     ) -> MatchDecision | None:
-        if self.threshold is None or candidate.blocked or candidate.score < self.threshold:
+        if not self.enabled or self.threshold is None:
+            return None
+        if candidate.blocked or candidate.score < self.threshold:
+            return None
+        if candidate.matcher_version != MATCHER_VERSION:
             return None
         if not any(
             f.code in {Feature.GTIN_EQUAL, Feature.SUPPLIER_SKU_EQUAL} for f in candidate.features
