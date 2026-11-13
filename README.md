@@ -36,7 +36,7 @@ npm run check          # форматирование, линтеры, типы,
 npm run api:openapi    # после изменения API: обновить contracts/openapi и типы UI
 ```
 
-**PostgreSQL:** схема и тесты подготовлены, но совместимость не проверена до первого успешного прогона CI job `backend-postgres` (локально: `PRICEPILOT_TEST_POSTGRES_URL=postgresql+psycopg://… uv run pytest`).
+**PostgreSQL:** совместимость проверена в CI на `postgres:17` (job `backend-postgres`, [run 43397872185](https://github.com/maksimmaliavin989-lab/PricePilot/actions/runs/43397872185)). Локальный прогон — только на отдельной одноразовой базе (тесты удаляют схему `public`): `PRICEPILOT_TEST_POSTGRES_URL=postgresql+psycopg://… uv run pytest`.
 
 Данные dev-режима — `./.pricepilot-dev/` (в desktop — каталог данных приложения ОС). Сеть не нужна; внешние сервисы не вызываются.
 

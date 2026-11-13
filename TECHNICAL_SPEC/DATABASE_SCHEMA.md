@@ -34,7 +34,7 @@
 - Миграция `0003_line_review_reasons`: `extracted_lines.review_reasons_json` — коды причин ручной проверки строки.
 - `supplier_offers`, `match_*`, `comparisons*`, `fx_rates`, `cost_snapshots` — TASK_006.
 - Тесты миграций и репозиториев параметризованы по движку: SQLite всегда, PostgreSQL — при `PRICEPILOT_TEST_POSTGRES_URL` (в CI — сервис `postgres:17`).
-- **⚠ Совместимость с PostgreSQL НЕ ПРОВЕРЕНА.** Миграции и тесты подготовлены, но ни разу не выполнялись на PostgreSQL (локально сервер недоступен, CI ещё не запускался). Считать поддержку PostgreSQL непроверенной до первого успешного прогона job `backend-postgres`; после него обновить эту строку.
+- **PostgreSQL проверен в CI** (13.11.2026, [run 43397872185](https://github.com/maksimmaliavin989-lab/PricePilot/actions/runs/43397872185), коммит `b884e3f`): job `backend-postgres` на `postgres:17` прошёл полный `uv run pytest -q` — миграции 0001–0003 (чистая база, повтор, откат, обновление с данными, отсутствие дрейфа схемы) и тесты репозиториев/ограничений. Проверена только версия 17 и только в CI; другие версии PostgreSQL и облачное развёртывание не проверялись.
 
 ## Индексы и ограничения
 Unique `(workspace_id, sha256)` для активной дедупликации (повторный импорт может ссылаться на существующий blob). Индексы по workspace/supplier/status, normalized identifier, product, comparison. Checks: nonnegative quantities/prices where domain allows, ISO-like code validation in service, source IDs foreign key. Не удалять audit references; soft-delete для доменных записей, каскадное физическое удаление только в privacy deletion flow.
