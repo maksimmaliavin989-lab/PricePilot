@@ -99,5 +99,5 @@ jobs:
         working-directory: .
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
-      - name: Clippy (release profile: sidecar launch path)
+      - name: "Clippy (release profile: sidecar launch path)"
         run: cargo clippy --release --all-targets -- -D warnings
