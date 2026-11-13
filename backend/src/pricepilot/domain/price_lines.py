@@ -32,6 +32,9 @@ class ReviewReason(StrEnum):
     MISSING_UNIT = "MISSING_UNIT"
     UNKNOWN_UNIT = "UNKNOWN_UNIT"
     ASSUMED_CURRENCY = "ASSUMED_CURRENCY"
+    COLUMNS_INFERRED = "COLUMNS_INFERRED"  # no readable header: roles guessed from content
+    UNIT_CORRECTED = "UNIT_CORRECTED"  # unit read after fixing OCR look-alike characters
+    UNIT_AMBIGUOUS = "UNIT_AMBIGUOUS"  # recognised "м": a lost superscript would mean м²/м³
 
 
 class Role(StrEnum):
@@ -141,9 +144,36 @@ def currency_from_header(header: str) -> str | None:
     return None
 
 
+# Latin letters that look like Cyrillic ones; OCR mixes them inside one word ("шT.").
+_LOOKALIKES = str.maketrans("acekmoptxyh", "асекмортхун")
+_CYRILLIC = re.compile(r"[а-я]")
+_LATIN = re.compile(r"[a-z]")
+
+
+# Recognition confusions seen on scans: Latin look-alikes, "з" for "3", markup for "²/³".
+_OCR_LOOKALIKES = str.maketrans("acekmoptxyhnru", "асекмортхунпги")
+_OCR_NOISE = re.compile(r"[\^\\'`]")
+
+
+def unit_from_ocr_text(text: str) -> tuple[str | None, bool]:
+    """Unit code and whether it was obtained only after correcting likely recognition errors
+    ("yn." → "уп.", "Kr" → "кг", "мз" → "м3"). A corrected unit must be confirmed."""
+    exact = unit_from_text(text)
+    if exact is not None:
+        return exact, False
+    key = _OCR_NOISE.sub("", text.strip().lower()).translate(_OCR_LOOKALIKES)
+    key = re.sub(r"(?<=м)з$", "3", key)
+    corrected = unit_from_text(key)
+    return corrected, corrected is not None
+
+
 def unit_from_text(text: str) -> str | None:
     key = _SPACES.sub("", text.strip().lower().replace("ё", "е")).rstrip(".")
-    return _UNIT_ALIASES.get(key) or _UNIT_ALIASES.get(key.replace(".", ""))
+    found = _UNIT_ALIASES.get(key) or _UNIT_ALIASES.get(key.replace(".", ""))
+    if found is None and _CYRILLIC.search(key) and _LATIN.search(key):
+        mapped = key.translate(_LOOKALIKES)
+        found = _UNIT_ALIASES.get(mapped) or _UNIT_ALIASES.get(mapped.replace(".", ""))
+    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +258,58 @@ def find_header(sheet: Sheet) -> HeaderMatch | None:
     return best
 
 
+_PRICE_LIKE = re.compile(r"\d[.,]\d{2}$")
+_CODE_LIKE = re.compile(r"^(?=.*\d)(?=.*[A-Za-zА-Яа-яЁё])[\w./-]{2,20}$")
+
+
+def infer_header(sheet: Sheet) -> HeaderMatch | None:
+    """Column roles from content when no header row is readable (e.g. OCR could not read a
+    header printed light-on-dark). Port of the prototype's headerless recovery:
+    prices = columns of numbers with kopecks, unit = column of unit tokens, name = the
+    longest text column, SKU = short letter+digit codes left of the name. Row-number
+    columns (plain integers) are ignored. Every line produced this way is flagged."""
+    rows = [r for r in sheet.rows if len(r.cells) >= 2]
+    if len(rows) < 3:
+        return None
+    columns = sorted({c.column for r in rows for c in r.cells})
+    stats: dict[int, dict[str, float]] = {}
+    for col in columns:
+        texts = [c.text for r in rows if (c := r.cell(col)) is not None]
+        n = len(texts)
+        if n < max(2, len(rows) // 3):
+            continue
+        stats[col] = {
+            "price": sum(
+                1
+                for t in texts
+                if _PRICE_LIKE.search(t.strip()) and read_number(t).value is not None
+            )
+            / n,
+            "unit": sum(1 for t in texts if unit_from_text(t)) / n,
+            "code": sum(1 for t in texts if _CODE_LIKE.match(t.strip())) / n,
+            "letters": sum(1 for t in texts if re.search(r"[A-Za-zА-Яа-яЁё]{3}", t)) / n,
+            "length": sum(len(t) for t in texts) / n,
+        }
+    prices = [c for c, st in stats.items() if st["price"] >= 0.6]
+    units = [c for c, st in stats.items() if st["unit"] >= 0.5 and c not in prices]
+    names = [c for c, st in stats.items() if st["letters"] >= 0.6 and c not in prices + units]
+    if not prices or not names:
+        return None
+    name_col = max(names, key=lambda c: stats[c]["length"])
+    roles: list[Column] = [Column(name_col, Role.NAME, "")]
+    if units:
+        roles.append(Column(max(units, key=lambda c: stats[c]["unit"]), Role.UNIT, ""))
+    codes = [c for c, st in stats.items() if c < name_col and st["code"] >= 0.6 and c not in prices]
+    if codes:
+        roles.append(Column(codes[-1], Role.SKU, ""))
+    roles.extend(Column(c, Role.PRICE, "") for c in sorted(prices) if c > name_col)
+    if not any(r.role is Role.PRICE for r in roles):
+        return None
+    return HeaderMatch(
+        row=Row(index=0, cells=()), columns=tuple(sorted(roles, key=lambda c: c.index))
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ExtractionContext:
     fallback_currency: str  # supplier default, else workspace base currency
@@ -239,12 +321,17 @@ def _text_field(key: str, cell: Cell, sheet: str | None, header: str) -> NewFiel
         value_type=ValueType.TEXT,
         raw_value=cell.text,
         normalized={"value": cell.text},
-        confidence=None,
+        confidence=cell.confidence,
         location=_cell_location(sheet, cell),
-        method="table_cell",
+        method=_method(cell),
         header=header,
         formula=cell.formula,
     )
+
+
+def _method(cell: Cell) -> str:
+    """Recognised (OCR) text is marked so its origin stays visible in provenance."""
+    return "ocr" if cell.confidence is not None else "table_cell"
 
 
 def _cell_location(sheet: str | None, cell: Cell) -> SourceLocation:
@@ -280,9 +367,9 @@ def _price_field(
             value_type=ValueType.MONEY,
             raw_value=cell.text,
             normalized=normalized,
-            confidence=None,
+            confidence=cell.confidence,
             location=_cell_location(sheet, cell),
-            method="table_cell",
+            method=_method(cell),
             header=column.header,
             formula=cell.formula,
         ),
@@ -297,8 +384,56 @@ def _is_section(row: Row, name_col: int, header: HeaderMatch) -> bool:
     return len(row.cells) == 1 and not has_data and row.cells[0].number is None
 
 
+def _name_with_continuation(row: Row, name: Cell, header: HeaderMatch) -> Cell:
+    """On a page (PDF/OCR) a long name may be laid out as two segments, the second landing
+    in a column without a header ("Цемент М500 ДО," | "мешок 50 кг"). Such cells between
+    the name column and the next recognised column belong to the name. Spreadsheet cells
+    are never merged: their columns are explicit."""
+    if name.has_cell_address or not header.row.cells:  # inferred roles: columns unknown
+        return name
+    following = [c.index for c in header.columns if c.index > name.column]
+    stop = min(following, default=name.column + 1)
+    extra = [
+        c
+        for c in row.cells
+        if name.column < c.column < stop and header.row.cell(c.column) is None and c.region
+    ]
+    if not extra or name.region is None:
+        return name
+    parts = [name, *extra]
+    regions = [p.region for p in parts if p.region is not None]
+    x0 = min(r[0] for r in regions)
+    y0 = min(r[1] for r in regions)
+    x1 = max(r[0] + r[2] for r in regions)
+    y1 = max(r[1] + r[3] for r in regions)
+    return Cell(
+        row=name.row,
+        column=name.column,
+        text=" ".join(p.text for p in parts),
+        page=name.page,
+        region=(x0, y0, round(x1 - x0, 4), round(y1 - y0, 4)),
+        confidence=min((p.confidence for p in parts if p.confidence is not None), default=None),
+    )
+
+
+def _repeats_header(row: Row, header: HeaderMatch) -> bool:
+    """A header repeated on the next page, possibly recognised slightly differently by OCR
+    ("Цена,руб." / "Цена, руб."): the name and every price column hold header words."""
+    if not header.row.cells:
+        return False
+    for column in [*header.of(Role.NAME), *header.of(Role.PRICE)]:
+        cell = row.cell(column.index)
+        if cell is None or role_of(cell.text) is not column.role:
+            return False
+    return True
+
+
 def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
     header = find_header(sheet)
+    inferred = False
+    if header is None:
+        header = infer_header(sheet)
+        inferred = True
     if header is None:
         return []
     name_col = header.of(Role.NAME)[0]
@@ -309,7 +444,9 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
     for row in sheet.rows:
         if row.index <= header.row.index:
             continue
-        if [_norm_header(c.text) for c in row.cells] == header_texts:
+        if [_norm_header(c.text) for c in row.cells] == header_texts or _repeats_header(
+            row, header
+        ):
             continue  # the header repeated on a new page (multi-page PDF/DOCX tables)
         name = row.cell(name_col.index)
         if name is None or name.number is not None:
@@ -324,7 +461,8 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
                 section = name.text
             continue  # text without price/unit: heading, note or footer, not a product
 
-        reasons: list[ReviewReason] = []
+        name = _name_with_continuation(row, name, header)
+        reasons: list[ReviewReason] = [ReviewReason.COLUMNS_INFERRED] if inferred else []
         fields: list[NewField] = [_text_field("name", name, sheet.name, name_col.header)]
         for role, key in ((Role.SKU, "sku"), (Role.CHARACTERISTICS, "characteristics")):
             for column in header.of(role)[:1]:
@@ -346,18 +484,22 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
         if unit_cell is None:
             reasons.append(ReviewReason.MISSING_UNIT)
         else:
-            code = unit_from_text(unit_cell.text)
+            code, corrected = unit_from_ocr_text(unit_cell.text)
             if code is None:
                 reasons.append(ReviewReason.UNKNOWN_UNIT)
+            elif corrected:
+                reasons.append(ReviewReason.UNIT_CORRECTED)
+            elif code == "m" and unit_cell.confidence is not None:
+                reasons.append(ReviewReason.UNIT_AMBIGUOUS)
             fields.append(
                 NewField(
                     key="unit",
                     value_type=ValueType.UNIT,
                     raw_value=unit_cell.text,
                     normalized={"value": code} if code else None,
-                    confidence=None,
+                    confidence=unit_cell.confidence,
                     location=_cell_location(sheet.name, unit_cell),
-                    method="table_cell",
+                    method=_method(unit_cell),
                     header=unit_columns[0].header,
                 )
             )

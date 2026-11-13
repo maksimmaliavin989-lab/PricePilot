@@ -61,6 +61,9 @@ class Cell:
     # top-left origin) as (x, y, width, height). Spreadsheet cells leave both empty.
     page: int | None = None
     region: tuple[float, float, float, float] | None = None
+    # Recognised text (OCR): engine confidence 0..1 (lowest of the merged words). None for
+    # text that was read, not recognised.
+    confidence: float | None = None
 
     @property
     def ref(self) -> str:

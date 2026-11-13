@@ -126,15 +126,6 @@ def test_pdf_provenance_is_page_and_region() -> None:
     assert all(f.raw_value != "Наименование" for line in lines for f in line.fields)
 
 
-def test_scanned_pdf_reports_missing_ocr() -> None:
-    with pytest.raises(ParseError) as scan:
-        PdfParser().parse(
-            (FIXTURES / "Прайс_1_obshchestroitelnye_скан.pdf").read_bytes(), DEFAULT_LIMITS
-        )
-    assert scan.value.code == "OCR_RESOURCE_MISSING"
-    assert "1, 2" in scan.value.message
-
-
 def test_pdf_damaged_and_limits() -> None:
     data = (FIXTURES / "Прайс_1_obshchestroitelnye.pdf").read_bytes()
     with pytest.raises(ParseError) as damaged:

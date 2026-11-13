@@ -82,6 +82,9 @@ export const REASON_LABELS: Record<string, string> = {
   MISSING_UNIT: "Нет единицы",
   UNKNOWN_UNIT: "Неизвестная единица",
   ASSUMED_CURRENCY: "Валюта не указана — предположена",
+  COLUMNS_INFERRED: "Заголовок таблицы не прочитан — столбцы определены по содержимому",
+  UNIT_CORRECTED: "Единица распознана с исправлением — подтвердите",
+  UNIT_AMBIGUOUS: "«м» со скана: м, м² или м³? — подтвердите",
 };
 
 export function reasonLabel(code: string): string {

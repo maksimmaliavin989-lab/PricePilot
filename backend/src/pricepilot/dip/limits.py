@@ -15,6 +15,9 @@ class Limits:
     max_cell_chars: int = 10_000
     max_sheets: int = 50
     max_pages: int = 200  # PDF
+    # OCR (images, scanned PDF pages): ~1–3 s per page on a laptop CPU.
+    max_ocr_pages: int = 50
+    max_image_pixels: int = 60_000_000  # decoded size; guards against image bombs
     # ZIP containers (XLSX/DOCX): defence against decompression bombs.
     max_zip_entries: int = 2_000
     max_zip_uncompressed_bytes: int = 250 * 1024 * 1024

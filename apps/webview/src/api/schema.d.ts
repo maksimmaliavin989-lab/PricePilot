@@ -608,7 +608,7 @@ export interface components {
             status: components["schemas"]["LineStatus"];
             /**
              * Review Reasons
-             * @description Почему строку должен проверить человек: MULTIPLE_PRICE_COLUMNS, AMBIGUOUS_NUMBER, INVALID_NUMBER, MISSING_PRICE, MISSING_UNIT, UNKNOWN_UNIT, ASSUMED_CURRENCY
+             * @description Почему строку должен проверить человек: MULTIPLE_PRICE_COLUMNS, AMBIGUOUS_NUMBER, INVALID_NUMBER, MISSING_PRICE, MISSING_UNIT, UNKNOWN_UNIT, ASSUMED_CURRENCY, COLUMNS_INFERRED, UNIT_CORRECTED, UNIT_AMBIGUOUS
              */
             review_reasons: string[];
             /** Fields */

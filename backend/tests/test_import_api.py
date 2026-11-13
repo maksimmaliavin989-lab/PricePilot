@@ -27,6 +27,7 @@ JPG = FIXTURES / "Прайс_1_obshchestroitelnye.jpg"
 SCAN_PDF = FIXTURES / "Прайс_1_obshchestroitelnye_скан.pdf"
 DOCX = FIXTURES / "Прайс_2_otdelochnye.docx"
 OLE2 = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+HEIC = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic" + b"\x00" * 64
 
 
 @pytest.fixture
@@ -125,13 +126,13 @@ def test_same_bytes_are_deduplicated(
 def test_recognised_but_not_yet_supported_format_is_stored_not_faked(
     client: TestClient, ws: dict[str, Any], data_dir: Path
 ) -> None:
-    body = upload(client, ws, JPG.name, JPG.read_bytes()).json()
+    body = upload(client, ws, "фото.heic", HEIC).json()
     assert body["error"]["code"] == "UNSUPPORTED_FORMAT"
     assert body["run"]["status"] == "failed"
     assert body["run"]["error"] == {"code": "UNSUPPORTED_FORMAT", "retryable": False}
     assert body["document"]["status"] == "failed"
-    assert body["document"]["detected_mime"] == "image/jpeg"
-    assert "JPG" in body["error"]["message"]
+    assert body["document"]["detected_mime"] == "image/heic"
+    assert "HEIC" in body["error"]["message"]
     assert len(originals(data_dir)) == 1  # original preserved
     lines = client.get(f"/api/v1/documents/{body['document']['id']}/lines").json()
     assert lines["items"] == []
@@ -353,8 +354,10 @@ def test_source_rows_csv_and_unsupported(client: TestClient, ws: dict[str, Any])
     assert window["sheet"] is None
     assert window["rows"][1]["cells"][1]["ref"] == "B2"
 
-    jpg_doc = upload(client, ws, JPG.name, JPG.read_bytes()).json()["document"]
-    resp = client.get(f"/api/v1/documents/{jpg_doc['id']}/source-rows", params={"from": 1, "to": 2})
+    heic_doc = upload(client, ws, "фото.heic", HEIC).json()["document"]
+    resp = client.get(
+        f"/api/v1/documents/{heic_doc['id']}/source-rows", params={"from": 1, "to": 2}
+    )
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "INVALID_STATE"
 
@@ -369,19 +372,36 @@ def test_digital_pdf_and_docx_are_processed(client: TestClient, ws: dict[str, An
     assert price["provenance"]["page"] == 1
     assert price["provenance"]["cell"] is None
     assert price["provenance"]["region"] is not None
-    assert price["provenance"]["extractor"] == "pdf-text"
+    assert price["provenance"]["extractor"] == "pdf"
 
     docx = upload(client, ws, DOCX.name, DOCX.read_bytes()).json()
     assert (docx["document"]["status"], docx["run"]["counts"]["lines"]) == ("completed", 41)
 
 
-def test_scanned_pdf_fails_honestly_until_ocr(
+def test_scanned_pdf_and_image_are_recognised_locally(
     client: TestClient, ws: dict[str, Any], data_dir: Path
 ) -> None:
     body = upload(client, ws, SCAN_PDF.name, SCAN_PDF.read_bytes()).json()
-    assert body["document"]["status"] == "failed"
-    assert body["run"]["error"] == {"code": "OCR_RESOURCE_MISSING", "retryable": False}
+    assert body["error"] is None
+    assert body["run"]["counts"]["lines"] == 39  # 24 on page 1 + 15 on page 2
+    assert body["document"]["status"] in {"completed", "review_required"}
     assert len(originals(data_dir)) == 1
+    lines = client.get(f"/api/v1/documents/{body['document']['id']}/lines").json()["items"]
+    price = next(f for f in lines[0]["fields"] if f["field_key"] == "price")
+    assert price["normalized_value"] == {"amount": "540.00", "currency": "RUB"}
+    assert price["provenance"]["page"] == 1
+    assert price["provenance"]["region"] is not None
+    assert price["provenance"]["method"] == "ocr"
+    assert 0 < price["confidence"] <= 1
+    assert {line["fields"][0]["provenance"]["page"] for line in lines} == {1, 2}
+
+    jpg = upload(client, ws, JPG.name, JPG.read_bytes()).json()
+    assert jpg["error"] is None
+    assert jpg["run"]["counts"]["lines"] == 39
+    window = client.get(
+        f"/api/v1/documents/{jpg['document']['id']}/source-rows", params={"from": 1, "to": 8}
+    ).json()
+    assert any(c["text"] == "540,00" for r in window["rows"] for c in r["cells"])
 
 
 def test_pdf_source_rows_carry_pages(client: TestClient, ws: dict[str, Any]) -> None:

@@ -1,6 +1,6 @@
 """Adapter registry and the DIP pipeline version.
 
-Formats that are recognised but have no adapter yet (PDF, DOCX, XLS, images) get an explicit
+Formats that are recognised but have no adapter yet (HEIC) get an explicit
 ``UNSUPPORTED_FORMAT`` failure: processing is never imitated. Adding an adapter bumps
 ``PIPELINE_VERSION``, which creates new runs instead of overwriting old results.
 """
@@ -13,6 +13,7 @@ import json
 from pricepilot.dip.adapters.base import Parser
 from pricepilot.dip.adapters.csv_adapter import CsvParser
 from pricepilot.dip.adapters.docx_adapter import DocxParser
+from pricepilot.dip.adapters.image_adapter import ImageParser
 from pricepilot.dip.adapters.pdf_adapter import PdfParser
 from pricepilot.dip.adapters.xls_adapter import XlsParser
 from pricepilot.dip.adapters.xlsx_adapter import XlsxParser
@@ -21,12 +22,11 @@ from pricepilot.dip.model import MIME_TYPES, FileKind
 
 # 0.2.0: typed price columns (опт/розница/акция) no longer require a per-line choice.
 # 0.3.0: DOCX, digital PDF (text layer) and legacy XLS adapters.
-PIPELINE_VERSION = "dip-0.3.0"
+# 0.4.0: local OCR (RapidOCR) for JPEG/PNG/TIFF and scanned PDF pages; headerless tables,
+#        name continuation on pages, OCR unit corrections (always flagged for review).
+PIPELINE_VERSION = "dip-0.4.0"
 
 PLANNED_KINDS: dict[FileKind, str] = {
-    FileKind.JPEG: "JPG",
-    FileKind.PNG: "PNG",
-    FileKind.TIFF: "TIFF",
     FileKind.HEIC: "HEIC",
 }
 
@@ -39,6 +39,7 @@ class ParserRegistry:
             XlsParser(),
             DocxParser(),
             PdfParser(),
+            ImageParser(),
         ]
 
     def for_kind(self, kind: FileKind) -> Parser | None:
