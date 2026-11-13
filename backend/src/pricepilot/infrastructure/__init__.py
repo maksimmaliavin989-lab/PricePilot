@@ -1,0 +1,1 @@
+"""Adapters: database, logging, filesystem."""

@@ -1,0 +1,439 @@
+{
+  "description": "Синтетические прайсы для тестов PricePilot. Подтверждено владельцем проекта 2026-11-13 как синтетические данные, не реальные цены.",
+  "origin": "~/Documents/Codex/price-lists (оригиналы не изменялись)",
+  "copied_at": "2026-11-13",
+  "layouts": {
+    "classic": "Общестроительные; колонки №/Наименование/Ед. изм./Цена, разделы-заголовки внутри таблицы",
+    "wholesale_retail": "Отделочные; Артикул/Наименование/Ед./Опт/Розница — две колонки цен, нужен явный выбор",
+    "catalog": "Кровля и пиломатериалы; Код/Наименование/Характеристика/Ед./Цена"
+  },
+  "tiers": {
+    "null": "базовый набор без уровня",
+    "promo": "Цены_акция",
+    "wholesale": "Цены_оптовые",
+    "premium": "Цены_премиум"
+  },
+  "files": [
+    {
+      "path": "Прайс_1_obshchestroitelnye.xlsx",
+      "sha256": "035853a49c470526c792541bbc67c6e1ae9b59abb500b27c257859d5031e5639",
+      "size_bytes": 8312,
+      "format": "xlsx",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Общестроительные материалы",
+        "title": "Прайс-лист · Вариант 1 · Классический"
+      }
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye.docx",
+      "sha256": "97d9371b47d4fbceb5a527509934159536d0db75143971401ab51ae5a7ca55cb",
+      "size_bytes": 39600,
+      "format": "docx",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye.pdf",
+      "sha256": "c344d2d8bb1e7b4cb24fe24677d4cde32202b9ba580fc560d39ee76d8a2beb3b",
+      "size_bytes": 86283,
+      "format": "pdf",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye.jpg",
+      "sha256": "85885e6c6475af9b2daeffcc6415b2c145fbcc57becc7b049b698f6167abaddc",
+      "size_bytes": 666288,
+      "format": "jpg",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye.png",
+      "sha256": "8219569b6a3ed911107e75a7703bd01ed5276c403d77fbc936e7d529819fc7fd",
+      "size_bytes": 330295,
+      "format": "png",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_2_otdelochnye.xlsx",
+      "sha256": "c1ee0f37b6b7237440a314bdba445445167fc1024ac49cb3bbbfb51a869f9cce",
+      "size_bytes": 8716,
+      "format": "xlsx",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": null,
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Отделочные материалы",
+        "title": "Прайс-лист · Вариант 2 · Опт и розница"
+      }
+    },
+    {
+      "path": "Прайс_2_otdelochnye.docx",
+      "sha256": "de18fe63bddcd4bff6d6bff13075bce413da6b8120966a36fb33af291debe747",
+      "size_bytes": 39954,
+      "format": "docx",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_2_otdelochnye.pdf",
+      "sha256": "aa1cb30384f92dbdf4d076c83d6f69d1e3b69757992f7b302d7b7d40367d3f2c",
+      "size_bytes": 85389,
+      "format": "pdf",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_2_otdelochnye.jpg",
+      "sha256": "aae27fc6d97f02204ea3c630e380c41b5f5ac74d3744bb61ea793f0960c8687c",
+      "size_bytes": 751320,
+      "format": "jpg",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_2_otdelochnye.png",
+      "sha256": "acc89ab2a455ade3ae7562fdef844730351d55eb368b7598690423d3db98c739",
+      "size_bytes": 369164,
+      "format": "png",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_3_krovlya_pilomaterialy.xlsx",
+      "sha256": "38a060ec9c411ef9a8ffd45189a8c20d1e04b5dee44210523a842245f8d0b2a9",
+      "size_bytes": 8524,
+      "format": "xlsx",
+      "list": 3,
+      "layout": "catalog",
+      "tier": null,
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Кровля и пиломатериалы",
+        "title": "Прайс-лист · Вариант 3 · Каталог"
+      }
+    },
+    {
+      "path": "Прайс_3_krovlya_pilomaterialy.docx",
+      "sha256": "89f17067eab861f104f4024d11fb02748584dcf545b63060b04f244a02a382fb",
+      "size_bytes": 39774,
+      "format": "docx",
+      "list": 3,
+      "layout": "catalog",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_3_krovlya_pilomaterialy.pdf",
+      "sha256": "f283604d781258768f9dedcff5deb313ec2c3c59b51313b4dea6aa07b71e353e",
+      "size_bytes": 86212,
+      "format": "pdf",
+      "list": 3,
+      "layout": "catalog",
+      "tier": null,
+      "kind": "digital"
+    },
+    {
+      "path": "Прайс_3_krovlya_pilomaterialy.jpg",
+      "sha256": "75b4765e7e5d212a9d88eb4151b7d2295da0fe325fcd711ddf4bdcb12eaf545d",
+      "size_bytes": 690941,
+      "format": "jpg",
+      "list": 3,
+      "layout": "catalog",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_3_krovlya_pilomaterialy.png",
+      "sha256": "d4c18106abc4fec0a7e13a04064ea3b95f5c97d8eabcf6746d83111a72a723fe",
+      "size_bytes": 362322,
+      "format": "png",
+      "list": 3,
+      "layout": "catalog",
+      "tier": null,
+      "kind": "raster_render"
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye_скан.pdf",
+      "sha256": "2df35ba5b4bc3a32c44881af4474e0783c933f643a1e1799a8134d975c087aef",
+      "size_bytes": 1376917,
+      "format": "pdf",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "scan"
+    },
+    {
+      "path": "Прайс_1_obshchestroitelnye_скан_стр1.jpg",
+      "sha256": "8ec702e5aca2606bdc29f224c56bae10e7fadc6426a1cec5395a923167c1de83",
+      "size_bytes": 759754,
+      "format": "jpg",
+      "list": 1,
+      "layout": "classic",
+      "tier": null,
+      "kind": "scan",
+      "page": 1
+    },
+    {
+      "path": "Цены_акция/Прайс_1_obshchestroitelnye_акция.xlsx",
+      "sha256": "5d4bd69efb95c0bc746e8476b22bfae619a65003c56f0ec3292bc2125e144c7d",
+      "size_bytes": 8320,
+      "format": "xlsx",
+      "list": 1,
+      "layout": "classic",
+      "tier": "promo",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Общестроительные материалы",
+        "title": "Прайс-лист · Акционные цены (−7%)"
+      }
+    },
+    {
+      "path": "Цены_акция/Прайс_1_obshchestroitelnye_акция.pdf",
+      "sha256": "5132cc796d4c8b6eb8ff10db116ec2fcd348bc2f3d3f0e5ba56db2ce2539074e",
+      "size_bytes": 86283,
+      "format": "pdf",
+      "list": 1,
+      "layout": "classic",
+      "tier": "promo",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_акция/Прайс_2_otdelochnye_акция.xlsx",
+      "sha256": "0ebf4c8632b251d254b2bc766c44fd374716e1207a399759b5fe5c7a9a141c0c",
+      "size_bytes": 8732,
+      "format": "xlsx",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "promo",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Отделочные материалы",
+        "title": "Прайс-лист · Акционные цены (−7%)"
+      }
+    },
+    {
+      "path": "Цены_акция/Прайс_2_otdelochnye_акция.pdf",
+      "sha256": "896130a2985e8f93a47668ded3f6f7607a9e58909154f669bf9302456f0a6469",
+      "size_bytes": 85446,
+      "format": "pdf",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "promo",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_акция/Прайс_3_krovlya_pilomaterialy_акция.xlsx",
+      "sha256": "0985825c830192b52eb9320a24910f0ba2922d310917e4c3914357c0711d7a30",
+      "size_bytes": 8532,
+      "format": "xlsx",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "promo",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Кровля и пиломатериалы",
+        "title": "Прайс-лист · Акционные цены (−7%)"
+      }
+    },
+    {
+      "path": "Цены_акция/Прайс_3_krovlya_pilomaterialy_акция.pdf",
+      "sha256": "f3a4da46fa901fc5fcd2428cf083fcfc120b7f09d6e8f482bc1c3290b5ae6725",
+      "size_bytes": 86378,
+      "format": "pdf",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "promo",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_оптовые/Прайс_1_obshchestroitelnye_оптовые.xlsx",
+      "sha256": "b4f7b4670ec2d968775b64963482ff236e2e3ae404653cc869c0ed7d50218104",
+      "size_bytes": 8315,
+      "format": "xlsx",
+      "list": 1,
+      "layout": "classic",
+      "tier": "wholesale",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Общестроительные материалы",
+        "title": "Прайс-лист · Оптовые цены (−12%)"
+      }
+    },
+    {
+      "path": "Цены_оптовые/Прайс_1_obshchestroitelnye_оптовые.pdf",
+      "sha256": "c5fa3714577d0bca6dafc7375559e967df73d169bf801556748f0aaea28448d0",
+      "size_bytes": 86288,
+      "format": "pdf",
+      "list": 1,
+      "layout": "classic",
+      "tier": "wholesale",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_оптовые/Прайс_2_otdelochnye_оптовые.xlsx",
+      "sha256": "7ed814d3992436df7bfa1fd2704523fe51984edb66663f94c822f817b92a4131",
+      "size_bytes": 8734,
+      "format": "xlsx",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "wholesale",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Отделочные материалы",
+        "title": "Прайс-лист · Оптовые цены (−12%)"
+      }
+    },
+    {
+      "path": "Цены_оптовые/Прайс_2_otdelochnye_оптовые.pdf",
+      "sha256": "445cc721d2f82b51453c25f539aa0d9e2e4fbaf5faaa54390213e8b3324eb0c2",
+      "size_bytes": 85443,
+      "format": "pdf",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "wholesale",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_оптовые/Прайс_3_krovlya_pilomaterialy_оптовые.xlsx",
+      "sha256": "b7b736931b15f61c34790d968a4d3ee3ef5ca39bcf9dc4494c2864d54454df48",
+      "size_bytes": 8538,
+      "format": "xlsx",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "wholesale",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Кровля и пиломатериалы",
+        "title": "Прайс-лист · Оптовые цены (−12%)"
+      }
+    },
+    {
+      "path": "Цены_оптовые/Прайс_3_krovlya_pilomaterialy_оптовые.pdf",
+      "sha256": "76bfa09cb32713917a417eeda9fc7cd6b541e7d44041f8bdc63d5f70628db889",
+      "size_bytes": 86369,
+      "format": "pdf",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "wholesale",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_премиум/Прайс_1_obshchestroitelnye_премиум.xlsx",
+      "sha256": "8481b05d267537cddc874b467ea10d4cc8d949bddbe48f5ce81a8457c6d34f51",
+      "size_bytes": 8318,
+      "format": "xlsx",
+      "list": 1,
+      "layout": "classic",
+      "tier": "premium",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Общестроительные материалы",
+        "title": "Прайс-лист · Премиум-сегмент (+12%)"
+      }
+    },
+    {
+      "path": "Цены_премиум/Прайс_1_obshchestroitelnye_премиум.pdf",
+      "sha256": "b1fbc2c506cf6a926964632ba42424abd5bea8539c6ce2fac342d2033f8c646c",
+      "size_bytes": 86256,
+      "format": "pdf",
+      "list": 1,
+      "layout": "classic",
+      "tier": "premium",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_премиум/Прайс_2_otdelochnye_премиум.xlsx",
+      "sha256": "eb7dee7610b9b13dac8332614a07bcd26e07303d01fc37b92b25d8d4b9a416ac",
+      "size_bytes": 8727,
+      "format": "xlsx",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "premium",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Отделочные материалы",
+        "title": "Прайс-лист · Премиум-сегмент (+12%)"
+      }
+    },
+    {
+      "path": "Цены_премиум/Прайс_2_otdelochnye_премиум.pdf",
+      "sha256": "a2ca258df8fdbf127729a32d743928c16cfcfb343b4c919e587bb4e23fe54e3c",
+      "size_bytes": 85390,
+      "format": "pdf",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "premium",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_премиум/Прайс_3_krovlya_pilomaterialy_премиум.xlsx",
+      "sha256": "d48ad160f5fa840f497aa6e4331b58ea94c18d38da09a939423a9277cd36a759",
+      "size_bytes": 8538,
+      "format": "xlsx",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "premium",
+      "kind": "digital",
+      "header": {
+        "supplier": "ООО «СТРОЙМАТЕРИАЛЫ ПЛЮС»",
+        "section": "Кровля и пиломатериалы",
+        "title": "Прайс-лист · Премиум-сегмент (+12%)"
+      }
+    },
+    {
+      "path": "Цены_премиум/Прайс_3_krovlya_pilomaterialy_премиум.pdf",
+      "sha256": "af3c92af2c6b66eadd32182d98f88f650c4014feb55d0f96b7d63e75b13c50d6",
+      "size_bytes": 86246,
+      "format": "pdf",
+      "list": 3,
+      "layout": "catalog",
+      "tier": "premium",
+      "kind": "digital"
+    },
+    {
+      "path": "Цены_акция/Прайс_2_otdelochnye_акция.jpg",
+      "sha256": "1de557ee65f97c7939b1dc74879e353b0a2a9b87cb43200d5a050dabe68fec7d",
+      "size_bytes": 750209,
+      "format": "jpg",
+      "list": 2,
+      "layout": "wholesale_retail",
+      "tier": "promo",
+      "kind": "raster_render"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "pricepilot",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PricePilot — local-first procurement desktop app (Tauri 2 + React + FastAPI).",
+  "workspaces": [
+    "apps/webview",
+    "apps/desktop"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "desktop:dev": "npm run tauri:dev --workspace @pricepilot/desktop",
+    "api:openapi": "uv run --project backend python -m pricepilot openapi --output contracts/openapi/openapi.json && npm run gen:api --workspace @pricepilot/webview",
+    "check": "node scripts/check.mjs",
+    "check:backend": "node scripts/check.mjs backend",
+    "check:webview": "node scripts/check.mjs webview",
+    "check:desktop": "node scripts/check.mjs desktop"
+  }
+}

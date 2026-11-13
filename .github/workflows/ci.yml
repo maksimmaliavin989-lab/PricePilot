@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+      - name: OpenAPI contract is up to date
+        run: uv run python -m pricepilot openapi --check ../contracts/openapi/openapi.json
+
+  backend-postgres:
+    # Same migrations and repository tests against the cloud engine (ADR-003).
+    # NOT YET VERIFIED: this job has never run. PostgreSQL compatibility is unconfirmed until it
+    # passes; then update TECHNICAL_SPEC/DATABASE_SCHEMA.md.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: pricepilot
+          POSTGRES_PASSWORD: pricepilot
+          POSTGRES_DB: pricepilot_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pricepilot" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    env:
+      PRICEPILOT_TEST_POSTGRES_URL: postgresql+psycopg://pricepilot:pricepilot@127.0.0.1:5432/pricepilot_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run pytest -q tests/test_migrations.py tests/test_persistence.py
+
+  webview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - working-directory: apps/webview
+        run: |
+          npm run format:check
+          npm run lint
+          npm run typecheck
+          npm run check:api
+          npm test
+          npm run build
+
+  desktop:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: apps/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        working-directory: .
+      - name: Build webview (frontendDist must exist for generate_context!)
+        run: npm run build --workspace @pricepilot/webview
+        working-directory: .
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
