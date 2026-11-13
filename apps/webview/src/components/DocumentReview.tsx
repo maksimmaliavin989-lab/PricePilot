@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import type { ApiClient, Field, Line, SourceDocument, Unit } from "../api/client";
-import { DOCUMENT_STATUS_LABELS, reasonLabel, valueText } from "../review/format";
+import {
+  DOCUMENT_STATUS_LABELS,
+  isPriceKey,
+  priceName,
+  reasonLabel,
+  valueText,
+} from "../review/format";
 import {
   LINE_STATE_LABELS,
   fieldOf,
@@ -24,11 +30,14 @@ interface Props {
 }
 
 function priceSummary(line: Line): string {
-  const prices = line.fields.filter(
-    (f) => f.field_key === "price" || /^price_\d+$/.test(f.field_key),
-  );
+  const prices = line.fields.filter((f) => isPriceKey(f.field_key));
   if (prices.length === 0) return "—";
-  return prices.map((f) => valueText(f)).join(" / ");
+  return prices
+    .map((f) => {
+      const name = priceName(f.field_key);
+      return name ? `${name} ${valueText(f)}` : valueText(f);
+    })
+    .join(" · ");
 }
 
 export function DocumentReview({ client, document, supplierName, onBack }: Props) {
@@ -68,7 +77,7 @@ export function DocumentReview({ client, document, supplierName, onBack }: Props
   const selected = lines?.find((l) => l.id === selectedId) ?? null;
   const selectedField: Field | null =
     selected?.fields.find((f) => f.id === fieldId) ??
-    (selected ? (fieldOf(selected, "price") ?? fieldOf(selected, "price_1") ?? null) : null);
+    (selected ? (selected.fields.find((f) => isPriceKey(f.field_key)) ?? null) : null);
   const counts = useMemo(() => {
     const all = lines ?? [];
     return {

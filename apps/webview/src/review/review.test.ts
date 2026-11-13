@@ -21,6 +21,9 @@ describe("labels", () => {
     f.provenance.header = "Розница, руб.";
     expect(fieldLabel(f)).toBe("Цена 2 (Розница, руб.)");
     expect(fieldLabel(makeField({ field_key: "unit" }))).toBe("Единица");
+    const wholesale = makeField({ field_key: "price_wholesale" });
+    wholesale.provenance.header = "Опт, руб.";
+    expect(fieldLabel(wholesale)).toBe("Цена: опт (Опт, руб.)");
     expect(reasonLabel("AMBIGUOUS_NUMBER")).toBe("Неоднозначное число");
     expect(reasonLabel("SOMETHING_NEW")).toBe("SOMETHING_NEW");
   });
@@ -47,6 +50,32 @@ describe("labels", () => {
         units,
       ),
     ).toBe("шт");
+  });
+});
+
+describe("typed prices", () => {
+  it("is not 'attention' for опт/розница and is checked once either is accepted", () => {
+    const opt = makeField({
+      field_key: "price_wholesale",
+      value_type: "money",
+      normalized_value: { amount: "430", currency: "RUB" },
+    });
+    const retail = makeField({
+      field_key: "price_retail",
+      value_type: "money",
+      normalized_value: { amount: "490", currency: "RUB" },
+    });
+    const line = makeLine("t", 1, "Штукатурка", { fields: [opt, retail] });
+    expect(lineState(line)).toBe("pending");
+    expect(
+      lineState({
+        ...line,
+        fields: [
+          { ...opt, review_status: "accepted" },
+          { ...retail, review_status: "accepted" },
+        ],
+      }),
+    ).toBe("checked");
   });
 });
 

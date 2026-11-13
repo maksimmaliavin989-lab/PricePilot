@@ -16,7 +16,8 @@ from pricepilot.dip.adapters.xlsx_adapter import XlsxParser
 from pricepilot.dip.limits import Limits
 from pricepilot.dip.model import MIME_TYPES, FileKind
 
-PIPELINE_VERSION = "dip-0.1.0"
+# 0.2.0: typed price columns (опт/розница/акция) no longer require a per-line choice.
+PIPELINE_VERSION = "dip-0.2.0"
 
 PLANNED_KINDS: dict[FileKind, str] = {
     FileKind.PDF: "PDF",

@@ -25,6 +25,7 @@ from pricepilot.domain.price_lines import (
     Role,
     currency_from_header,
     extract_price_lines,
+    price_keys,
     read_number,
     role_of,
     unit_from_text,
@@ -236,7 +237,7 @@ def test_xlsx_fixture_line_counts(path: Path) -> None:
     list_no = path.name.split("_")[1]
     assert len(lines) == EXPECTED_LINES[list_no]
     review = {r for line in lines for r in line.review_reasons}
-    assert review == ({"MULTIPLE_PRICE_COLUMNS"} if list_no == "2" else set())
+    assert review == set()  # опт/розница are typed prices, not an ambiguity
 
 
 def test_xlsx_provenance_and_values_list_1() -> None:
@@ -260,12 +261,12 @@ def test_xlsx_multiple_price_columns_kept_for_choice() -> None:
     plaster = {f.key: f for f in lines[0].fields}
     assert plaster["sku"].raw_value == "СМ-101"
     assert plaster["section"].normalized == {"value": "Сухие смеси"}
-    assert plaster["price_1"].normalized == {"amount": "400", "currency": "RUB"}
-    assert plaster["price_1"].header == "Опт, руб."
-    assert plaster["price_2"].normalized == {"amount": "455", "currency": "RUB"}
-    assert plaster["price_2"].header == "Розница, руб."
+    assert plaster["price_wholesale"].normalized == {"amount": "400", "currency": "RUB"}
+    assert plaster["price_wholesale"].header == "Опт, руб."
+    assert plaster["price_retail"].normalized == {"amount": "455", "currency": "RUB"}
+    assert plaster["price_retail"].header == "Розница, руб."
     assert "price" not in plaster  # nothing is pre-selected
-    assert lines[0].review_reasons == ("MULTIPLE_PRICE_COLUMNS",)
+    assert lines[0].review_reasons == ()
 
 
 def test_xlsx_catalog_layout_with_characteristics() -> None:
@@ -352,3 +353,25 @@ def test_csv_rejects_binary_and_limits() -> None:
 def test_csv_without_product_header_yields_no_lines() -> None:
     doc = CsvParser().parse("просто;текст\nбез;заголовков\n".encode(), DEFAULT_LIMITS)
     assert extract_price_lines(doc, CTX) == []
+
+
+@pytest.mark.parametrize(
+    ("headers", "keys", "must_choose"),
+    [
+        (["Цена, руб."], ["price"], False),
+        (["Опт, руб.", "Розница, руб."], ["price_wholesale", "price_retail"], False),
+        (["Wholesale price", "Retail price"], ["price_wholesale", "price_retail"], False),
+        (["Цена", "Цена по акции"], ["price_1", "price_2"], True),  # one column untyped
+        (["Цена 1", "Цена 2"], ["price_1", "price_2"], True),  # headerless OCR scan
+        (["Опт до 10 шт", "Опт от 10 шт"], ["price_1", "price_2"], True),  # same type twice
+    ],
+)
+def test_price_column_types(headers: list[str], keys: list[str], must_choose: bool) -> None:
+    assert price_keys(headers) == (keys, must_choose)
+
+
+def test_untyped_price_columns_still_require_a_choice() -> None:
+    data = xlsx_bytes([["Наименование", "Ед.", "Цена 1", "Цена 2"], ["Товар", "шт", 10, 12]])
+    lines = extract_price_lines(XlsxParser().parse(data, DEFAULT_LIMITS), CTX)
+    assert lines[0].review_reasons == ("MULTIPLE_PRICE_COLUMNS", "ASSUMED_CURRENCY")
+    assert {f.key for f in lines[0].fields} >= {"price_1", "price_2"}

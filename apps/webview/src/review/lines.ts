@@ -1,4 +1,5 @@
 import type { Field, Line } from "../api/client";
+import { isPriceKey } from "./format";
 
 export type LineFilter = "all" | "attention" | "checked";
 export type LineSort = "source" | "name";
@@ -13,7 +14,7 @@ export type LineSort = "source" | "name";
 export type LineState = "attention" | "checked" | "pending";
 
 function priceFields(line: Line): Field[] {
-  return line.fields.filter((f) => f.field_key === "price" || /^price_\d+$/.test(f.field_key));
+  return line.fields.filter((f) => isPriceKey(f.field_key));
 }
 
 export function lineState(line: Line): LineState {

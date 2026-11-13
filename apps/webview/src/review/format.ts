@@ -21,7 +21,31 @@ const FIELD_LABELS: Record<string, string> = {
   section: "Раздел",
 };
 
+/** Typed price columns: several prices of one list (опт / розница / акция). */
+export const PRICE_TYPE_LABELS: Record<string, string> = {
+  price_wholesale: "Опт",
+  price_retail: "Розница",
+  price_promo: "Акция",
+};
+
+export function isPriceKey(key: string): boolean {
+  return key === "price" || key.startsWith("price_");
+}
+
+/** Short price name for tables: "Опт", "Розница", "Цена 1"; "" for a single price. */
+export function priceName(key: string): string {
+  const typed = PRICE_TYPE_LABELS[key];
+  if (typed) return typed;
+  const n = /^price_(\d+)$/.exec(key);
+  return n ? `Цена ${n[1] ?? ""}` : "";
+}
+
 export function fieldLabel(field: Pick<Field, "field_key" | "provenance">): string {
+  const typed = PRICE_TYPE_LABELS[field.field_key];
+  if (typed) {
+    const header = field.provenance.header;
+    return header ? `Цена: ${typed.toLowerCase()} (${header})` : `Цена: ${typed.toLowerCase()}`;
+  }
   const priceN = /^price_(\d+)$/.exec(field.field_key);
   if (priceN) {
     const header = field.provenance.header;

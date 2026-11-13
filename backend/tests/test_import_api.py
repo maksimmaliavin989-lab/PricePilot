@@ -87,10 +87,19 @@ def test_correct_xlsx_is_processed_with_provenance(
     assert len(originals(data_dir)) == 1
 
 
-def test_multi_price_list_requires_review(client: TestClient, ws: dict[str, Any]) -> None:
+def test_typed_price_columns_do_not_require_review(client: TestClient, ws: dict[str, Any]) -> None:
     body = upload(client, ws, LIST_2.name, LIST_2.read_bytes()).json()
-    assert body["document"]["status"] == "review_required"
-    assert body["run"]["counts"] == {"lines": 41, "fields": 41 * 6, "lines_review_required": 41}
+    # опт/розница are two typed prices of the list, not a per-line ambiguity
+    assert body["document"]["status"] == "completed"
+    assert body["run"]["counts"] == {"lines": 41, "fields": 41 * 6, "lines_review_required": 0}
+    line = client.get(f"/api/v1/documents/{body['document']['id']}/lines").json()["items"][0]
+    prices = {
+        f["field_key"]: f["normalized_value"] for f in line["fields"] if "price" in f["field_key"]
+    }
+    assert prices == {
+        "price_wholesale": {"amount": "430", "currency": "RUB"},
+        "price_retail": {"amount": "490", "currency": "RUB"},
+    }
 
 
 def test_same_bytes_are_deduplicated(
@@ -205,7 +214,7 @@ def test_partial_failure_does_not_stop_the_batch(client: TestClient, ws: dict[st
     assert [r["document"]["status"] for r in results] == [
         "failed",
         "failed",
-        "review_required",
+        "completed",
         "completed",
     ]
 

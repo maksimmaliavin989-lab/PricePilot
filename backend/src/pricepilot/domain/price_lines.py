@@ -93,6 +93,46 @@ def role_of(header: str) -> Role | None:
     return None
 
 
+class PriceType(StrEnum):
+    """Commercial meaning of a price column, read from its header. Several typed prices in
+    one list (e.g. опт / розница) are a property of the list, not an ambiguity: all are
+    kept as separate fields and the comparison decides which applies (TASK_006)."""
+
+    WHOLESALE = "wholesale"
+    RETAIL = "retail"
+    PROMO = "promo"
+
+
+_PRICE_TYPES: tuple[tuple[PriceType, re.Pattern[str]], ...] = (
+    (PriceType.PROMO, re.compile(r"акци|скидк|распрод|promo|\bsale\b")),  # not "wholesale"
+    (PriceType.WHOLESALE, re.compile(r"(?:^|[^а-я])опт|wholesale|дилер")),
+    (PriceType.RETAIL, re.compile(r"розн|retail")),
+)
+
+
+def price_type_of(header: str) -> PriceType | None:
+    value = _norm_header(header)
+    for price_type, pattern in _PRICE_TYPES:
+        if pattern.search(value):
+            return price_type
+    return None
+
+
+def price_keys(headers: list[str]) -> tuple[list[str], bool]:
+    """Field keys for the price columns and whether the user must pick one.
+
+    One column → ``price``. Several columns with distinct recognised types →
+    ``price_wholesale`` / ``price_retail`` / ``price_promo``, no review needed. Otherwise
+    (unlabelled or repeated types) → ``price_1…price_n`` and an explicit choice is required.
+    """
+    if len(headers) == 1:
+        return ["price"], False
+    types = [price_type_of(h) for h in headers]
+    if all(t is not None for t in types) and len(set(types)) == len(types):
+        return [f"price_{t.value}" for t in types if t is not None], False
+    return [f"price_{n}" for n in range(1, len(headers) + 1)], True
+
+
 def currency_from_header(header: str) -> str | None:
     value = _norm_header(header)
     for code, pattern in _CURRENCY_MARKERS:
@@ -316,14 +356,15 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
                 )
             )
 
-        if len(prices) > 1:
+        keys, must_choose = price_keys([c.header for c in prices])
+        if must_choose:
             reasons.append(ReviewReason.MULTIPLE_PRICE_COLUMNS)
         for n, (column, cell) in enumerate(zip(prices, price_cells, strict=True), start=1):
             currency = currency_from_header(column.header)
             if currency is None:
                 currency = ctx.fallback_currency
                 reasons.append(ReviewReason.ASSUMED_CURRENCY)
-            key = "price" if len(prices) == 1 else f"price_{n}"
+            key = keys[n - 1]
             field, problem = _price_field(key, column, cell, currency, sheet.name, row)
             if field is not None:
                 fields.append(field)
