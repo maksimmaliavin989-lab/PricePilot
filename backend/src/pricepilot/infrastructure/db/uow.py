@@ -16,6 +16,11 @@ from pricepilot.infrastructure.db.document_repositories import (
     SqlExtractionRepository,
     SqlRunRepository,
 )
+from pricepilot.infrastructure.db.offer_repositories import (
+    SqlCostRepository,
+    SqlMatchRepository,
+    SqlOfferRepository,
+)
 from pricepilot.infrastructure.db.repositories import SqlSupplierRepository, SqlWorkspaceRepository
 
 
@@ -29,6 +34,9 @@ class SqlUnitOfWork:
     extraction: SqlExtractionRepository
     catalog: SqlCatalogRepository
     audit: SqlAuditRepository
+    offers: SqlOfferRepository
+    matches: SqlMatchRepository
+    costs: SqlCostRepository
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
@@ -44,6 +52,9 @@ class SqlUnitOfWork:
         self.extraction = SqlExtractionRepository(self._connection)
         self.catalog = SqlCatalogRepository(self._connection)
         self.audit = SqlAuditRepository(self._connection)
+        self.offers = SqlOfferRepository(self._connection)
+        self.matches = SqlMatchRepository(self._connection)
+        self.costs = SqlCostRepository(self._connection)
         return self
 
     def __exit__(

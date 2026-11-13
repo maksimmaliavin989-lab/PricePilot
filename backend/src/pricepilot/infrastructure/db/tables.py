@@ -15,6 +15,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Dialect,
     Float,
@@ -332,4 +333,207 @@ audit_events = Table(
     Column("correlation_id", String(64), nullable=True),
     Index(None, "workspace_id", "occurred_at"),
     Index(None, "entity_type", "entity_id"),
+)
+
+# --- Offers, matching and landed cost (TASK_006) ----------------------------------------
+# Decimal amounts are canonical decimal strings (validated by the domain): exact on every
+# engine, no binary floating point.
+
+DECIMAL_TEXT = 40
+
+supplier_offers = Table(
+    "supplier_offers",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "workspace_id", Uuid(), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("supplier_id", Uuid(), ForeignKey("suppliers.id", ondelete="RESTRICT"), nullable=True),
+    Column(
+        "source_document_id",
+        Uuid(),
+        ForeignKey("source_documents.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column(
+        "extracted_line_id",
+        Uuid(),
+        ForeignKey("extracted_lines.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("line_ordinal", Integer(), nullable=False),
+    Column("price_field_key", String(64), nullable=False),
+    Column("raw_name", Text(), nullable=False),
+    Column("supplier_sku", String(256), nullable=True),
+    Column("unit_code", String(16), nullable=True),
+    Column("price_amount", String(DECIMAL_TEXT), nullable=False),
+    Column("currency", String(3), nullable=False),
+    Column("price_confirmed", Boolean(), nullable=False),
+    Column("pack_json", PortableJSON, nullable=True),
+    *_audit_columns(),
+    CheckConstraint("version >= 1", name="version_positive"),
+    UniqueConstraint("extracted_line_id", "price_field_key"),
+    Index(None, "workspace_id", "created_at", "id"),
+    Index(None, "source_document_id"),
+)
+
+match_decisions = Table(
+    "match_decisions",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "offer_id", Uuid(), ForeignKey("supplier_offers.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("product_id", Uuid(), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False),
+    Column("decision", String(16), nullable=False),
+    Column("actor_id", String(64), nullable=False),
+    Column("reason", Text(), nullable=True),
+    Column(
+        "supersedes_id",
+        Uuid(),
+        ForeignKey("match_decisions.id", ondelete="RESTRICT"),
+        nullable=True,
+    ),
+    Column("candidate_json", PortableJSON, nullable=True),
+    Column("override", Boolean(), nullable=False),
+    Column("decided_at", UTCDateTime(), nullable=False),
+    CheckConstraint(_in("decision", ("accept", "reject", "revoke")), name="decision_allowed"),
+    Index(None, "offer_id", "decided_at"),
+    Index(None, "product_id"),
+)
+
+cost_policies = Table(
+    "cost_policies",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "workspace_id", Uuid(), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("name", String(100), nullable=False),
+    Column("types_json", PortableJSON, nullable=False),
+    Column("fingerprint", String(64), nullable=False),
+    *_audit_columns(),
+    CheckConstraint("version >= 1", name="version_positive"),
+    UniqueConstraint("workspace_id"),
+)
+
+fx_rates = Table(
+    "fx_rates",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "workspace_id", Uuid(), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("base_currency", String(3), nullable=False),
+    Column("quote_currency", String(3), nullable=False),
+    Column("rate", String(DECIMAL_TEXT), nullable=False),
+    Column("effective_date", Date(), nullable=False),
+    Column("source", String(200), nullable=False),
+    Column("created_at", UTCDateTime(), nullable=False),
+    Index(None, "workspace_id", "base_currency", "quote_currency", "effective_date"),
+)
+
+tax_rate_sources = Table(
+    "tax_rate_sources",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "workspace_id", Uuid(), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("name", String(200), nullable=False),
+    Column("reference", String(500), nullable=False),
+    Column("verified_by", String(200), nullable=False),
+    Column("verified_at", UTCDateTime(), nullable=False),
+    Column("created_at", UTCDateTime(), nullable=False),
+    Index(None, "workspace_id"),
+)
+
+tax_rates = Table(
+    "tax_rates",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "source_id", Uuid(), ForeignKey("tax_rate_sources.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("component_code", String(40), nullable=False),
+    Column("rate", String(DECIMAL_TEXT), nullable=False),
+    Column("valid_from", Date(), nullable=False),
+    Column("valid_to", Date(), nullable=True),
+    Column("scope", String(200), nullable=True),
+    Index(None, "source_id"),
+)
+
+comparisons = Table(
+    "comparisons",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "workspace_id", Uuid(), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("name", String(200), nullable=False),
+    Column("target_currency", String(3), nullable=False),
+    Column("as_of_date", Date(), nullable=False),
+    *_audit_columns(),
+    CheckConstraint("version >= 1", name="version_positive"),
+    Index(None, "workspace_id", "created_at", "id"),
+)
+
+comparison_items = Table(
+    "comparison_items",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "comparison_id", Uuid(), ForeignKey("comparisons.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column("product_id", Uuid(), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False),
+    Column("required_quantity", String(DECIMAL_TEXT), nullable=False),
+    Column("unit_code", String(16), nullable=False),
+    Column("position", Integer(), nullable=False),
+    UniqueConstraint("comparison_id", "product_id"),
+)
+
+comparison_offers = Table(
+    "comparison_offers",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "item_id", Uuid(), ForeignKey("comparison_items.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column(
+        "offer_id", Uuid(), ForeignKey("supplier_offers.id", ondelete="RESTRICT"), nullable=False
+    ),
+    Column(
+        "match_decision_id",
+        Uuid(),
+        ForeignKey("match_decisions.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("terms_json", PortableJSON, nullable=False),
+    Column("created_at", UTCDateTime(), nullable=False),
+    UniqueConstraint("item_id", "offer_id"),
+)
+
+cost_snapshots = Table(
+    "cost_snapshots",
+    metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column(
+        "comparison_offer_id",
+        Uuid(),
+        ForeignKey("comparison_offers.id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("formula_version", String(32), nullable=False),
+    Column("policy_fingerprint", String(64), nullable=False),
+    Column("input_hash", String(64), nullable=False),
+    Column("snapshot_json", PortableJSON, nullable=False),
+    Column("total_amount", String(DECIMAL_TEXT), nullable=True),
+    Column("unit_amount", String(DECIMAL_TEXT), nullable=True),
+    Column("currency", String(3), nullable=False),
+    Column("complete", Boolean(), nullable=False),
+    Column(
+        "supersedes_id", Uuid(), ForeignKey("cost_snapshots.id", ondelete="RESTRICT"), nullable=True
+    ),
+    Column("created_at", UTCDateTime(), nullable=False),
+    Index(None, "comparison_offer_id", "created_at"),
 )

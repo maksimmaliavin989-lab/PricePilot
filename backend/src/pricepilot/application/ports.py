@@ -6,13 +6,28 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from types import TracebackType
-from typing import Protocol, Self
+from typing import Any, Protocol, Self
 from uuid import UUID
 
 from pricepilot.domain.audit import AuditEvent
 from pricepilot.domain.catalog import Product, ProductIdentifier
+from pricepilot.domain.costs import (
+    CostPolicy,
+    CostSnapshot,
+    FxRate,
+    VerifiedRate,
+    VerifiedRateSource,
+)
 from pricepilot.domain.documents import DocumentStatus, ProcessingRun, RunStatus, SourceDocument
 from pricepilot.domain.extraction import ExtractedField, ExtractedLine, FieldRevision
+from pricepilot.domain.matching import MatchDecision
+from pricepilot.domain.offers import (
+    Comparison,
+    ComparisonItem,
+    ComparisonOffer,
+    OfferTerms,
+    SupplierOffer,
+)
 from pricepilot.domain.suppliers import Supplier
 from pricepilot.domain.workspaces import Workspace
 
@@ -158,6 +173,82 @@ class CatalogRepository(Protocol):
     ) -> Page[tuple[Product, list[ProductIdentifier]]]: ...
 
 
+class OfferRepository(Protocol):
+    def add(self, offer: SupplierOffer) -> None: ...
+
+    def get(self, offer_id: UUID) -> SupplierOffer | None: ...
+
+    def keys_for_document(self, document_id: UUID) -> set[tuple[UUID, str]]: ...
+
+    def list(
+        self, workspace_id: UUID, page: PageRequest, *, document_id: UUID | None
+    ) -> Page[SupplierOffer]: ...
+
+    def update(self, offer: SupplierOffer, expected_version: int) -> bool: ...
+
+
+class MatchRepository(Protocol):
+    def add(self, decision: MatchDecision) -> None: ...
+
+    def for_offers(self, offer_ids: list[UUID]) -> dict[UUID, list[MatchDecision]]: ...
+
+
+class CostRepository(Protocol):
+    def get_policy(self, workspace_id: UUID) -> tuple[CostPolicy, int] | None: ...
+
+    def save_policy(
+        self,
+        workspace_id: UUID,
+        policy: CostPolicy,
+        *,
+        expected_version: int | None,
+        policy_id: UUID,
+        now: datetime,
+    ) -> bool: ...
+
+    def add_fx(self, workspace_id: UUID, rate_id: UUID, rate: FxRate, now: datetime) -> None: ...
+
+    def list_fx(self, workspace_id: UUID) -> list[tuple[UUID, FxRate]]: ...
+
+    def add_rate_source(
+        self,
+        workspace_id: UUID,
+        source: VerifiedRateSource,
+        rates: list[VerifiedRate],
+        now: datetime,
+    ) -> list[UUID]: ...
+
+    def list_rates(self, workspace_id: UUID) -> list[VerifiedRate]: ...
+
+    def list_rate_sources(self, workspace_id: UUID) -> list[VerifiedRateSource]: ...
+
+    def add_comparison(self, comparison: Comparison) -> None: ...
+
+    def get_comparison(self, comparison_id: UUID) -> Comparison | None: ...
+
+    def list_comparisons(self, workspace_id: UUID, page: PageRequest) -> Page[Comparison]: ...
+
+    def add_item(self, item: ComparisonItem) -> None: ...
+
+    def items(self, comparison_id: UUID) -> list[ComparisonItem]: ...
+
+    def get_item(self, item_id: UUID) -> ComparisonItem | None: ...
+
+    def add_comparison_offer(self, comparison_offer: ComparisonOffer) -> None: ...
+
+    def update_terms(self, comparison_offer_id: UUID, terms: OfferTerms) -> bool: ...
+
+    def comparison_offers(self, item_ids: list[UUID]) -> list[ComparisonOffer]: ...
+
+    def get_comparison_offer(self, comparison_offer_id: UUID) -> ComparisonOffer | None: ...
+
+    def add_snapshot(self, comparison_offer_id: UUID, snapshot: CostSnapshot) -> None: ...
+
+    def latest_snapshots(self, comparison_offer_ids: list[UUID]) -> dict[UUID, dict[str, Any]]: ...
+
+    def get_snapshot(self, snapshot_id: UUID) -> dict[str, Any] | None: ...
+
+
 class AuditRepository(Protocol):
     def add(self, event: AuditEvent) -> None: ...
 
@@ -185,6 +276,15 @@ class UnitOfWork(Protocol):
 
     @property
     def audit(self) -> AuditRepository: ...
+
+    @property
+    def offers(self) -> OfferRepository: ...
+
+    @property
+    def matches(self) -> MatchRepository: ...
+
+    @property
+    def costs(self) -> CostRepository: ...
 
     def __enter__(self) -> Self: ...
 

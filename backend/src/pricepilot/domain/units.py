@@ -208,3 +208,16 @@ def pack_from_name(name: str, unit: str) -> Pack | None:
         evidence=match.group(0).strip(" ,"),
         confirmed=False,
     )
+
+
+def pack_from_json(payload: dict[str, object]) -> Pack:
+    content = payload.get("content")
+    if not isinstance(content, dict):
+        raise DomainValidationError("pack.content", "Ожидается объект {value, unit}.")
+    return Pack.create(
+        unit=str(payload.get("unit")),
+        content=Quantity.parse(content, "pack.content"),
+        source=PackSource(str(payload.get("source"))),
+        evidence=str(payload.get("evidence", "")),
+        confirmed=bool(payload.get("confirmed")),
+    )

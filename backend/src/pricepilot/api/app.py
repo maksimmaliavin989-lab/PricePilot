@@ -25,17 +25,21 @@ from pricepilot.api.middleware import (
 from pricepilot.api.routers import (
     backups,
     catalog,
+    costs,
     documents,
     fields,
     health,
+    offers,
     runs,
     suppliers,
     workspaces,
 )
 from pricepilot.api.schemas import ErrorResponse
 from pricepilot.application.catalog import CatalogService
+from pricepilot.application.costs import CostService
 from pricepilot.application.documents import DocumentService, ProcessingService
 from pricepilot.application.intake import ImportService, PipelineRunner
+from pricepilot.application.offers import OfferService
 from pricepilot.application.review import ReviewService
 from pricepilot.application.services import SupplierService, WorkspaceService
 from pricepilot.application.source import SourceService
@@ -94,6 +98,8 @@ def build_runtime(
         catalog=CatalogService(uow, correlation=correlation),
         imports=ImportService(documents, processing, store, registry, limits, worker.submit),
         source=SourceService(documents, store, registry, limits),
+        offers=OfferService(uow, correlation=correlation),
+        costs=CostService(uow, correlation=correlation),
     )
     return Runtime(services=services, store=store, worker=worker)
 
@@ -155,6 +161,8 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
     app.include_router(runs.router, prefix=API_PREFIX)
     app.include_router(fields.router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
+    app.include_router(offers.router, prefix=API_PREFIX)
+    app.include_router(costs.router, prefix=API_PREFIX)
     app.include_router(backups.router, prefix=API_PREFIX)
 
     # Order: last added is outermost → RequestContext → CORS → LocalGuard → routes.

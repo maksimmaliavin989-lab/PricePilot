@@ -45,7 +45,15 @@ from pricepilot.domain.common import (
     optional_text,
 )
 from pricepilot.domain.units import Conversion
-from pricepilot.domain.values import UNITS, Dimension, Money, Quantity, decimal_text, unit_code
+from pricepilot.domain.values import (
+    UNITS,
+    Dimension,
+    Money,
+    Quantity,
+    decimal_text,
+    parse_decimal,
+    unit_code,
+)
 
 COST_FORMULA_VERSION = "landed-2026.2"
 FX_MAX_AGE_DAYS = 7
@@ -938,4 +946,57 @@ def calculate(data: CostInput, *, now: datetime, supersedes_id: UUID | None = No
         known_subtotal=Money(known, target),
         warnings=tuple(warnings.items),
         supersedes_id=supersedes_id,
+    )
+
+
+# --- persistence form ---------------------------------------------------------------------
+
+
+def _dec(value: object, name: str) -> Decimal | None:
+    return None if value is None else parse_decimal(value, name)
+
+
+def component_type_from_json(payload: dict[str, object]) -> ComponentType:
+    return ComponentType.create(
+        code=str(payload.get("code", "")),
+        label=str(payload.get("label", "")),
+        category=Category(str(payload.get("category"))),
+        basis=Basis(str(payload.get("basis"))),
+        base=PercentBase(str(payload.get("base", PercentBase.GOODS_NET.value))),
+        required=bool(payload.get("required", False)),
+        default_value=_dec(payload.get("default_value"), "types.default_value"),
+        default_currency=(
+            str(payload["default_currency"]) if payload.get("default_currency") else None
+        ),
+    )
+
+
+def policy_from_json(payload: dict[str, object]) -> CostPolicy:
+    types = payload.get("types")
+    if not isinstance(types, list):
+        raise DomainValidationError("types", "Ожидается список компонентов.")
+    return CostPolicy.create(
+        str(payload.get("name", "")), [component_type_from_json(t) for t in types]
+    )
+
+
+def component_from_json(payload: dict[str, object]) -> CostComponent:
+    """Components entered by the user (manual values, unknown, not applicable)."""
+    status = InputStatus(str(payload.get("status", InputStatus.KNOWN.value)))
+    code = str(payload.get("code", ""))
+    note = str(payload["source"]) if payload.get("source") else None
+    if status is InputStatus.UNKNOWN:
+        return CostComponent.unknown(code, note)
+    if status is InputStatus.NOT_APPLICABLE:
+        return CostComponent.not_applicable(code, note)
+    value = _dec(payload.get("value"), "components.value")
+    if value is None:
+        raise DomainValidationError("components.value", "Нет значения.")
+    return CostComponent.known(
+        code,
+        value,
+        currency=str(payload["currency"]) if payload.get("currency") else None,
+        source=note,
+        basis=Basis(str(payload["basis"])) if payload.get("basis") else None,
+        base=PercentBase(str(payload["base"])) if payload.get("base") else None,
     )

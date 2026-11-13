@@ -13,6 +13,16 @@ from pricepilot.infrastructure.db.migrate import alembic_config, downgrade_to_ba
 from pricepilot.infrastructure.db.tables import metadata, workspaces
 
 TABLES = {
+    "supplier_offers",
+    "match_decisions",
+    "cost_policies",
+    "fx_rates",
+    "tax_rate_sources",
+    "tax_rates",
+    "comparisons",
+    "comparison_items",
+    "comparison_offers",
+    "cost_snapshots",
     "workspaces",
     "suppliers",
     "source_documents",

@@ -68,9 +68,9 @@ def test_upgrade_creates_backup_and_keeps_data(tmp_path: Path, token: str) -> No
     ws_id = _seed_old_database(data_dir, "0002_documents_catalog")
     with _client(data_dir, token) as client:
         health = client.get("/api/v1/health").json()
-        assert health["schema_revision"] == "0003_line_review_reasons"
+        assert health["schema_revision"] == "0004_offers_matching_costs"
         assert health["migration"]["from_revision"] == "0002_documents_catalog"
-        assert health["migration"]["to_revision"] == "0003_line_review_reasons"
+        assert health["migration"]["to_revision"] == "0004_offers_matching_costs"
         assert client.get(f"/api/v1/workspaces/{ws_id}").json()["name"] == "Старая версия"
     backups = _names(data_dir)
     assert backups == [health["migration"]["backup"]]

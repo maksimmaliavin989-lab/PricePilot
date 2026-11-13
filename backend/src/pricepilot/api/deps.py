@@ -9,8 +9,10 @@ from fastapi import Request, Response
 
 from pricepilot.api.errors import InvalidIfMatchError, PreconditionRequiredError
 from pricepilot.application.catalog import CatalogService
+from pricepilot.application.costs import CostService
 from pricepilot.application.documents import DocumentService, ProcessingService
 from pricepilot.application.intake import ImportService
+from pricepilot.application.offers import OfferService
 from pricepilot.application.review import ReviewService
 from pricepilot.application.services import SupplierService, WorkspaceService
 from pricepilot.application.source import SourceService
@@ -28,6 +30,8 @@ class Services:
     catalog: CatalogService
     imports: ImportService
     source: SourceService
+    offers: OfferService
+    costs: CostService
 
 
 def services(request: Request) -> Services:

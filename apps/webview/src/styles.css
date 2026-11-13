@@ -484,3 +484,34 @@ tr[aria-selected] {
     position: static;
   }
 }
+
+/* --- Matching and comparison (TASK_006) --- */
+.candidate {
+  display: grid;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.candidate-blocked {
+  border-color: var(--danger-border);
+}
+
+.features {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.review-side .inline {
+  flex-wrap: wrap;
+}
+
+.review-side textarea {
+  width: 100%;
+}
+
+.unknown {
+  font-style: italic;
+}

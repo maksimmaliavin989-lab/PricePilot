@@ -4,11 +4,13 @@ import { ApiClient, type Health, type Workspace } from "./api/client";
 import { isTauri, resolveConnection } from "./api/connection";
 import { ErrorNotice } from "./components/ErrorNotice";
 import { BackupPanel } from "./components/BackupPanel";
+import { ComparisonView } from "./components/ComparisonView";
 import { DocumentsView } from "./components/DocumentsView";
+import { MatchingView } from "./components/MatchingView";
 import { SupplierPanel } from "./components/SupplierPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
 
-type View = "workspaces" | "suppliers" | "documents";
+type View = "workspaces" | "suppliers" | "documents" | "matching" | "comparison";
 const ACTIVE_KEY = "pricepilot.activeWorkspace";
 
 function readActive(): string | null {
@@ -120,6 +122,26 @@ export function App() {
           >
             Документы
           </button>
+          <button
+            type="button"
+            aria-current={view === "matching" ? "page" : undefined}
+            disabled={!active}
+            onClick={() => {
+              setView("matching");
+            }}
+          >
+            Сопоставление
+          </button>
+          <button
+            type="button"
+            aria-current={view === "comparison" ? "page" : undefined}
+            disabled={!active}
+            onClick={() => {
+              setView("comparison");
+            }}
+          >
+            Сравнение
+          </button>
         </nav>
         <p className="status" role="status">
           {health
@@ -154,6 +176,12 @@ export function App() {
         ) : null}
         {client && view === "documents" && active ? (
           <DocumentsView key={active.id} client={client} workspace={active} />
+        ) : null}
+        {client && view === "matching" && active ? (
+          <MatchingView key={active.id} client={client} workspace={active} />
+        ) : null}
+        {client && view === "comparison" && active ? (
+          <ComparisonView key={active.id} client={client} workspace={active} />
         ) : null}
       </main>
     </div>

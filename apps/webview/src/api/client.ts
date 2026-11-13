@@ -18,6 +18,26 @@ export type FieldRevision = Schemas["FieldRevisionOut"];
 export type SourceWindow = Schemas["SourceWindowOut"];
 export type Unit = Schemas["UnitOut"];
 export type Backup = Schemas["BackupOut"];
+export type Product = Schemas["ProductOut"];
+export type Offer = Schemas["OfferOut"];
+export type OfferImport = Schemas["OfferImportOut"];
+export type Candidate = Schemas["CandidateOut"];
+export type Candidates = Schemas["CandidatesOut"];
+export type CostPolicy = Schemas["CostPolicyOut"];
+export type ComponentType = Schemas["ComponentTypeIO"];
+export type FxRate = Schemas["FxRateOut"];
+export type FxRateIn = Schemas["FxRateIn"];
+export type TaxRateSource = Schemas["TaxRateSourceOut"];
+export type TaxRateSourceIn = Schemas["TaxRateSourceIn"];
+export type Comparison = Schemas["ComparisonOut"];
+export type ComparisonSummary = Schemas["ComparisonSummaryOut"];
+export type ComparisonItem = Schemas["ComparisonItemOut"];
+export type ComparisonOffer = Schemas["ComparisonOfferOut"];
+export type OfferTerms = Schemas["OfferTermsIO"];
+export type CostComponentIn = Schemas["ComponentIO"];
+export type CostSnapshot = Schemas["CostSnapshotOut"];
+export type CostSnapshotDetail = Schemas["CostSnapshotDetailOut"];
+export type MatchDecisionKind = Schemas["MatchDecisionIn"]["decision"];
 export type DocumentStatus = SourceDocument["status"];
 export type RunStatus = ProcessingRun["status"];
 export type ReviewStatus = Field["review_status"];
@@ -314,5 +334,145 @@ export class ApiClient {
 
   createBackup(): Promise<Backup> {
     return this.request("POST", "/backups");
+  }
+
+  // --- Catalog, offers and matching (TASK_006) -------------------------------------------
+
+  async listAllProducts(workspaceId: string): Promise<Product[]> {
+    const items: Product[] = [];
+    let cursor: string | undefined;
+    do {
+      const page: Page<Product> = await this.request("GET", "/products", {
+        query: { workspace_id: workspaceId, cursor, limit: 200 },
+      });
+      items.push(...page.items);
+      cursor = page.next_cursor ?? undefined;
+    } while (cursor);
+    return items;
+  }
+
+  createOffers(documentId: string): Promise<OfferImport> {
+    return this.request("POST", `/documents/${encodeURIComponent(documentId)}/offers`);
+  }
+
+  async listAllOffers(workspaceId: string, documentId?: string): Promise<Offer[]> {
+    const items: Offer[] = [];
+    let cursor: string | undefined;
+    do {
+      const page: Page<Offer> = await this.request("GET", "/offers", {
+        query: { workspace_id: workspaceId, document_id: documentId, cursor, limit: 200 },
+      });
+      items.push(...page.items);
+      cursor = page.next_cursor ?? undefined;
+    } while (cursor);
+    return items;
+  }
+
+  setOfferPack(
+    id: string,
+    version: number,
+    content: { value: string; unit: string },
+  ): Promise<Offer> {
+    return this.request("PUT", `/offers/${encodeURIComponent(id)}/pack`, {
+      body: { content },
+      version,
+    });
+  }
+
+  offerCandidates(id: string): Promise<Candidates> {
+    return this.request("GET", `/offers/${encodeURIComponent(id)}/candidates`);
+  }
+
+  decideMatch(
+    id: string,
+    body: { decision: MatchDecisionKind; product_id: string; reason: string | null },
+  ): Promise<Offer> {
+    return this.request("POST", `/offers/${encodeURIComponent(id)}/match-decisions`, { body });
+  }
+
+  productFromOffer(
+    id: string,
+    body: { canonical_name?: string; base_unit_code?: string },
+  ): Promise<Product> {
+    return this.request("POST", `/offers/${encodeURIComponent(id)}/product`, { body });
+  }
+
+  // --- Landed cost -------------------------------------------------------------------------
+
+  costPolicy(workspaceId: string): Promise<CostPolicy> {
+    return this.request("GET", `/workspaces/${encodeURIComponent(workspaceId)}/cost-policy`);
+  }
+
+  saveCostPolicy(
+    workspaceId: string,
+    body: { name: string; types: ComponentType[]; expected_version: number },
+  ): Promise<CostPolicy> {
+    return this.request("PUT", `/workspaces/${encodeURIComponent(workspaceId)}/cost-policy`, {
+      body,
+    });
+  }
+
+  listFxRates(workspaceId: string): Promise<FxRate[]> {
+    return this.request("GET", `/workspaces/${encodeURIComponent(workspaceId)}/fx-rates`);
+  }
+
+  addFxRate(workspaceId: string, body: FxRateIn): Promise<FxRate> {
+    return this.request("POST", `/workspaces/${encodeURIComponent(workspaceId)}/fx-rates`, {
+      body,
+    });
+  }
+
+  listTaxRateSources(workspaceId: string): Promise<TaxRateSource[]> {
+    return this.request("GET", `/workspaces/${encodeURIComponent(workspaceId)}/tax-rate-sources`);
+  }
+
+  addTaxRateSource(workspaceId: string, body: TaxRateSourceIn): Promise<TaxRateSource> {
+    return this.request("POST", `/workspaces/${encodeURIComponent(workspaceId)}/tax-rate-sources`, {
+      body,
+    });
+  }
+
+  listComparisons(workspaceId: string): Promise<Page<ComparisonSummary>> {
+    return this.request("GET", "/comparisons", {
+      query: { workspace_id: workspaceId, limit: 200 },
+    });
+  }
+
+  createComparison(body: {
+    workspace_id: string;
+    name: string;
+    target_currency: string;
+    as_of: string;
+  }): Promise<Comparison> {
+    return this.request("POST", "/comparisons", { body });
+  }
+
+  getComparison(id: string): Promise<Comparison> {
+    return this.request("GET", `/comparisons/${encodeURIComponent(id)}`);
+  }
+
+  addComparisonItem(
+    id: string,
+    body: { product_id: string; required_quantity: { value: string; unit: string } },
+  ): Promise<Comparison> {
+    return this.request("POST", `/comparisons/${encodeURIComponent(id)}/items`, { body });
+  }
+
+  addComparisonOffer(itemId: string, body: OfferTerms & { offer_id: string }): Promise<Comparison> {
+    return this.request("POST", `/comparison-items/${encodeURIComponent(itemId)}/offers`, {
+      body,
+    });
+  }
+
+  updateComparisonTerms(comparisonOfferId: string, body: OfferTerms): Promise<Comparison> {
+    return this.request(
+      "PUT",
+      `/comparison-offers/${encodeURIComponent(comparisonOfferId)}/terms`,
+      { body },
+    );
+  }
+
+  calculateComparison(id: string): Promise<Comparison> {
+    return this.request("POST", `/comparisons/${encodeURIComponent(id)}/calculate`);
   }
 }
