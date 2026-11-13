@@ -51,6 +51,9 @@ export function SourcePanel({ client, documentId, line, field, hiddenByFilter }:
   }, [client, documentId, sheet, row]);
 
   const cellRef = field?.provenance.cell ?? null;
+  // PDF text has no A1 address: the field's column identifies its cell in the row.
+  const fieldColumn = field?.provenance.column ?? null;
+  const page = line.source.page;
   const columns = view
     ? Array.from(new Set(view.rows.flatMap((r) => r.cells.map((c) => c.column)))).sort(
         (a, b) => a - b,
@@ -61,7 +64,8 @@ export function SourcePanel({ client, documentId, line, field, hiddenByFilter }:
     <section aria-labelledby="source-title" className="card source-panel">
       <h3 id="source-title">Оригинал</h3>
       <p className="meta">
-        {sheet ? `Лист «${sheet}», ` : ""}строка {row ?? "—"}
+        {sheet ? `Лист «${sheet}», ` : ""}
+        {page ? `Страница ${String(page)}, ` : ""}строка {row ?? "—"}
         {cellRef ? `, ячейка ${cellRef}` : ""}
         {field ? ` · ${LOCALIZATION_LABELS[field.provenance.localization]}` : ""}
       </p>
@@ -83,12 +87,17 @@ export function SourcePanel({ client, documentId, line, field, hiddenByFilter }:
                     </th>
                     {columns.map((col) => {
                       const cell = r.cells.find((c) => c.column === col);
-                      const selected = current && cell?.ref === cellRef;
+                      const selected =
+                        current &&
+                        cell !== undefined &&
+                        (cellRef ? cell.ref === cellRef : cell.column === fieldColumn);
                       return (
                         <td
                           key={col}
                           className={selected ? "source-cell-selected" : undefined}
-                          title={cell?.formula ? `Формула: ${cell.formula}` : cell?.ref}
+                          title={
+                            cell?.formula ? `Формула: ${cell.formula}` : (cell?.ref ?? undefined)
+                          }
                         >
                           {cell?.text ?? ""}
                           {selected ? <span className="badge">поле</span> : null}

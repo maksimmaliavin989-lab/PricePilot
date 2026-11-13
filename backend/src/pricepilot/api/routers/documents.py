@@ -16,6 +16,7 @@ from pricepilot.api.schemas import (
     LineOut,
     LinePageOut,
     ProcessingRunOut,
+    RegionOut,
     SourceCellOut,
     SourceRowOut,
     SourceWindowOut,
@@ -206,8 +207,19 @@ def source_rows(
         rows=[
             SourceRowOut(
                 index=row.index,
+                page=row.page,
                 cells=[
-                    SourceCellOut(column=c.column, ref=c.ref, text=c.text, formula=c.formula)
+                    SourceCellOut(
+                        column=c.column,
+                        ref=c.ref if c.has_cell_address else None,
+                        text=c.text,
+                        formula=c.formula,
+                        region=RegionOut(
+                            x=c.region[0], y=c.region[1], width=c.region[2], height=c.region[3]
+                        )
+                        if c.region
+                        else None,
+                    )
                     for c in row.cells
                 ],
             )

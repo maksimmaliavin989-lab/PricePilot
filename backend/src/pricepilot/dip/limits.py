@@ -14,6 +14,7 @@ class Limits:
     max_columns: int = 200
     max_cell_chars: int = 10_000
     max_sheets: int = 50
+    max_pages: int = 200  # PDF
     # ZIP containers (XLSX/DOCX): defence against decompression bombs.
     max_zip_entries: int = 2_000
     max_zip_uncompressed_bytes: int = 250 * 1024 * 1024

@@ -18,7 +18,7 @@ from enum import StrEnum
 
 from pricepilot.dip.model import Cell, Row, Sheet, TableDocument
 from pricepilot.domain.common import DomainValidationError
-from pricepilot.domain.extraction import NewField, NewLine, SourceLocation, ValueType
+from pricepilot.domain.extraction import NewField, NewLine, Region, SourceLocation, ValueType
 from pricepilot.domain.values import MAX_FRACTION_DIGITS, MAX_INTEGER_DIGITS, decimal_text
 
 HEADER_SCAN_ROWS = 30
@@ -248,6 +248,9 @@ def _text_field(key: str, cell: Cell, sheet: str | None, header: str) -> NewFiel
 
 
 def _cell_location(sheet: str | None, cell: Cell) -> SourceLocation:
+    if not cell.has_cell_address:  # PDF/OCR: page + bounding box instead of an A1 address
+        region = Region(*cell.region) if cell.region else None
+        return SourceLocation(page=cell.page, row=cell.row, column=cell.column, region=region)
     return SourceLocation(sheet=sheet, row=cell.row, column=cell.column, cell=cell.ref)
 
 
@@ -302,9 +305,12 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
     prices = header.of(Role.PRICE)
     lines: list[NewLine] = []
     section: str | None = None
+    header_texts = [_norm_header(c.text) for c in header.row.cells]
     for row in sheet.rows:
         if row.index <= header.row.index:
             continue
+        if [_norm_header(c.text) for c in row.cells] == header_texts:
+            continue  # the header repeated on a new page (multi-page PDF/DOCX tables)
         name = row.cell(name_col.index)
         if name is None or name.number is not None:
             if _is_section(row, name_col.index, header):
@@ -374,7 +380,7 @@ def _sheet_lines(sheet: Sheet, ctx: ExtractionContext) -> list[NewLine]:
         lines.append(
             NewLine(
                 raw_text=" | ".join(cell.text for cell in row.cells)[:10_000],
-                location=SourceLocation(sheet=sheet.name, row=row.index),
+                location=SourceLocation(sheet=sheet.name, row=row.index, page=row.page),
                 fields=tuple(fields),
                 review_reasons=tuple(r.value for r in dict.fromkeys(reasons)),
             )

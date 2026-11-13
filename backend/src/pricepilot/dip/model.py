@@ -57,16 +57,26 @@ class Cell:
     number: Decimal | None = None
     formula: str | None = None
     is_date: bool = False
+    # Paged formats (PDF/OCR): page number and bounding box normalised to the page (0..1,
+    # top-left origin) as (x, y, width, height). Spreadsheet cells leave both empty.
+    page: int | None = None
+    region: tuple[float, float, float, float] | None = None
 
     @property
     def ref(self) -> str:
         return f"{column_letter(self.column)}{self.row}"
 
+    @property
+    def has_cell_address(self) -> bool:
+        """Spreadsheet-like cells have an A1 address; text extracted from a page does not."""
+        return self.page is None
+
 
 @dataclass(frozen=True, slots=True)
 class Row:
-    index: int  # 1-based row number in the source sheet/file
+    index: int  # 1-based row number in the source sheet/file (PDF: line number in the document)
     cells: tuple[Cell, ...]
+    page: int | None = None
 
     def cell(self, column: int) -> Cell | None:
         for c in self.cells:

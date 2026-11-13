@@ -24,6 +24,7 @@
 - UI: React 19 (MIT), Vite 8 (MIT), TypeScript 5.9 (Apache-2.0; 5.x, так как openapi-typescript/typescript-eslint ещё не поддерживают 7.x), openapi-typescript (MIT), ESLint + typescript-eslint (MIT), Prettier (MIT), Vitest (MIT), `@tauri-apps/api` (MIT/Apache-2.0).
 - Desktop: Tauri 2 (MIT/Apache-2.0), serde/serde_json, getrandom (MIT/Apache-2.0). Плагины Tauri не подключены.
 - Импорт (TASK_003): openpyxl (MIT) в режиме read-only, формулы не вычисляются; defusedxml (PSF) — защита XML от billion-laughs/XXE, openpyxl подключает его автоматически. CSV — стандартная библиотека.
+- Форматы (dip-0.3.0): python-docx (MIT), pdfplumber (MIT; pdfminer.six MIT, pypdfium2 Apache-2.0/BSD), xlrd (BSD) — только чтение, без выполнения макросов; xlwt (BSD) — только для тестов.
 - PostgreSQL-драйвер: psycopg 3 (`psycopg[binary]`, LGPL-3.0, динамическая библиотека) — только extra `postgres` и dev-зависимость; локальная сборка его не требует.
 - ORM-классы не используются: таблицы описаны SQLAlchemy Core, доменные сущности — dataclasses; репозитории в `infrastructure/db`.
 

@@ -566,13 +566,15 @@ class ImportOut(BaseModel):
 
 class SourceCellOut(BaseModel):
     column: int
-    ref: str
+    ref: str | None = Field(description="Адрес A1 (таблицы); null для PDF — см. region")
     text: str
     formula: str | None
+    region: RegionOut | None = None
 
 
 class SourceRowOut(BaseModel):
     index: int
+    page: int | None = None
     cells: list[SourceCellOut]
 
 

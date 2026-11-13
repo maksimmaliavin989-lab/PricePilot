@@ -5174,8 +5174,16 @@
             "title": "Column"
           },
           "ref": {
-            "type": "string",
-            "title": "Ref"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref",
+            "description": "Адрес A1 (таблицы); null для PDF — см. region"
           },
           "text": {
             "type": "string",
@@ -5191,6 +5199,16 @@
               }
             ],
             "title": "Formula"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RegionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -5296,6 +5314,17 @@
           "index": {
             "type": "integer",
             "title": "Index"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
           },
           "cells": {
             "items": {

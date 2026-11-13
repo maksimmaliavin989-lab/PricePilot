@@ -26,6 +26,9 @@ Base path `/api/v1`. JSON UTF-8. OpenAPI — источник синхрониз
 - `GET /documents/{id}/lines?run_id=&cursor=`; provenance включает source coordinates.
 - `PATCH /extracted-fields/{id}` `{value,reason,expected_revision}`; optimistic concurrency.
 
+### Форматы (pipeline `dip-0.3.0`)
+Обрабатываются CSV, XLSX, XLS, DOCX (таблицы; без таблиц — абзацы), PDF с текстовым слоем. Логика DOCX/PDF перенесена из прототипа `pricepilot-web` (группировка слов в строки по координатам, колонки по заголовку). Для PDF значения получают `provenance.page` и `region` (0..1) вместо адреса ячейки; таблица продолжается между страницами, повтор заголовка на новой странице пропускается. Скан без текстового слоя (PDF-скан, JPG/PNG/TIFF/HEIC) — `OCR_RESOURCE_MISSING` / `UNSUPPORTED_FORMAT`, оригинал сохранён; распознавание — отдельный шаг. `source-rows`: строки содержат `page`, ячейки — `region`, `ref` = null для PDF.
+
 ### Реализовано в TASK_004 — рабочее место проверки
 - `GET /documents/{id}/source-rows?sheet=&from=&to=` — фрагмент оригинала (только чтение, не более 200 строк): `{sheet, sheets[], first_row, last_row, total_rows, rows: [{index, cells: [{column, ref, text, formula}]}]}`. Оригинал перечитывается тем же адаптером, поэтому `ref` совпадает с `provenance.cell` строк; результат кэшируется по SHA-256. Неизвестный лист → `404`, неверный диапазон → `422`, формат без адаптера/нечитаемый оригинал → `409 INVALID_STATE`.
 - UI выбирает колонку цены через решения по полям (`accept` одного `price_n`, `reject` остальных). Статус строки на сервере (`line_status`, `review_reasons`) отражает результат извлечения и не меняется; «строка проверена» вычисляется в UI из статусов полей. **Открытый вопрос (TASK_006):** нужно ли серверное решение на уровне строки/предложения («выбранная цена»).

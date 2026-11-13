@@ -12,17 +12,18 @@ import json
 
 from pricepilot.dip.adapters.base import Parser
 from pricepilot.dip.adapters.csv_adapter import CsvParser
+from pricepilot.dip.adapters.docx_adapter import DocxParser
+from pricepilot.dip.adapters.pdf_adapter import PdfParser
+from pricepilot.dip.adapters.xls_adapter import XlsParser
 from pricepilot.dip.adapters.xlsx_adapter import XlsxParser
 from pricepilot.dip.limits import Limits
 from pricepilot.dip.model import MIME_TYPES, FileKind
 
 # 0.2.0: typed price columns (опт/розница/акция) no longer require a per-line choice.
-PIPELINE_VERSION = "dip-0.2.0"
+# 0.3.0: DOCX, digital PDF (text layer) and legacy XLS adapters.
+PIPELINE_VERSION = "dip-0.3.0"
 
 PLANNED_KINDS: dict[FileKind, str] = {
-    FileKind.PDF: "PDF",
-    FileKind.DOCX: "DOCX",
-    FileKind.XLS: "XLS",
     FileKind.JPEG: "JPG",
     FileKind.PNG: "PNG",
     FileKind.TIFF: "TIFF",
@@ -32,7 +33,13 @@ PLANNED_KINDS: dict[FileKind, str] = {
 
 class ParserRegistry:
     def __init__(self, parsers: list[Parser] | None = None) -> None:
-        self._parsers: list[Parser] = parsers or [CsvParser(), XlsxParser()]
+        self._parsers: list[Parser] = parsers or [
+            CsvParser(),
+            XlsxParser(),
+            XlsParser(),
+            DocxParser(),
+            PdfParser(),
+        ]
 
     def for_kind(self, kind: FileKind) -> Parser | None:
         for parser in self._parsers:

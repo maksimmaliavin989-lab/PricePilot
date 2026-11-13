@@ -843,12 +843,16 @@ export interface components {
         SourceCellOut: {
             /** Column */
             column: number;
-            /** Ref */
-            ref: string;
+            /**
+             * Ref
+             * @description Адрес A1 (таблицы); null для PDF — см. region
+             */
+            ref: string | null;
             /** Text */
             text: string;
             /** Formula */
             formula: string | null;
+            region?: components["schemas"]["RegionOut"] | null;
         };
         /** SourceLocationOut */
         SourceLocationOut: {
@@ -873,6 +877,8 @@ export interface components {
         SourceRowOut: {
             /** Index */
             index: number;
+            /** Page */
+            page?: number | null;
             /** Cells */
             cells: components["schemas"]["SourceCellOut"][];
         };
