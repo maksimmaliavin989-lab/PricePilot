@@ -17,6 +17,7 @@ export type Field = Schemas["FieldOut"];
 export type FieldRevision = Schemas["FieldRevisionOut"];
 export type SourceWindow = Schemas["SourceWindowOut"];
 export type Unit = Schemas["UnitOut"];
+export type Backup = Schemas["BackupOut"];
 export type DocumentStatus = SourceDocument["status"];
 export type RunStatus = ProcessingRun["status"];
 export type ReviewStatus = Field["review_status"];
@@ -108,17 +109,36 @@ export function buildUrl(baseUrl: string, path: string, query?: Query): string {
 }
 
 export class ApiClient {
-  private readonly connection: ApiConnection;
+  private connection: ApiConnection;
   private readonly fetchImpl: typeof fetch;
+  private readonly reconnect: (() => Promise<ApiConnection>) | undefined;
 
-  constructor(connection: ApiConnection, fetchImpl: typeof fetch = fetch.bind(globalThis)) {
+  /**
+   * @param reconnect Re-reads the API address/token (desktop: the shell restarts a crashed
+   *   API with a new port and token). Used once per request after a network failure, which
+   *   means the request never reached the API, so repeating it is safe for every method.
+   */
+  constructor(
+    connection: ApiConnection,
+    fetchImpl: typeof fetch = fetch.bind(globalThis),
+    reconnect?: () => Promise<ApiConnection>,
+  ) {
     this.connection = connection;
     this.fetchImpl = fetchImpl;
+    this.reconnect = reconnect;
+  }
+
+  private async send(path: string, options: RequestOptions, init: RequestInit): Promise<Response> {
+    const headers = { ...(init.headers as Record<string, string>) };
+    if (this.connection.token) headers.Authorization = `Bearer ${this.connection.token}`;
+    return this.fetchImpl(buildUrl(this.connection.baseUrl, path, options.query), {
+      ...init,
+      headers,
+    });
   }
 
   private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (this.connection.token) headers.Authorization = `Bearer ${this.connection.token}`;
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.version !== undefined) headers["If-Match"] = `"${options.version}"`;
     if (options.raw) Object.assign(headers, options.raw.headers);
@@ -128,9 +148,22 @@ export class ApiClient {
 
     let response: Response;
     try {
-      response = await this.fetchImpl(buildUrl(this.connection.baseUrl, path, options.query), init);
+      response = await this.send(path, options, init);
     } catch {
-      throw new ApiError(0, "API_UNREACHABLE", "Локальный сервис недоступен.", "");
+      if (!this.reconnect) {
+        throw new ApiError(0, "API_UNREACHABLE", "Локальный сервис недоступен.", "");
+      }
+      try {
+        this.connection = await this.reconnect();
+        response = await this.send(path, options, init);
+      } catch {
+        throw new ApiError(
+          0,
+          "API_UNREACHABLE",
+          "Локальный сервис недоступен. Он перезапускается — повторите действие.",
+          "",
+        );
+      }
     }
     if (!response.ok) throw await toApiError(response);
     return (await response.json()) as T;
@@ -271,5 +304,15 @@ export class ApiClient {
 
   listUnits(): Promise<Unit[]> {
     return this.request("GET", "/units");
+  }
+
+  // --- Backups ---------------------------------------------------------------------------
+
+  listBackups(): Promise<Backup[]> {
+    return this.request("GET", "/backups");
+  }
+
+  createBackup(): Promise<Backup> {
+    return this.request("POST", "/backups");
   }
 }

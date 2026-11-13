@@ -20,3 +20,7 @@ apps/desktop/src-tauri/gen/schemas/
 .env.*
 
 .DS_Store
+
+# Built sidecar binaries and Python build output (release artifacts)
+apps/desktop/src-tauri/binaries/
+backend/build/

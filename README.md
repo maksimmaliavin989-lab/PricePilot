@@ -38,6 +38,12 @@ npm run api:openapi    # после изменения API: обновить con
 
 **PostgreSQL:** совместимость проверена в CI на `postgres:17` (job `backend-postgres`, [run 43397872185](https://github.com/maksimmaliavin989-lab/PricePilot/actions/runs/43397872185)). Локальный прогон — только на отдельной одноразовой базе (тесты удаляют схему `public`): `PRICEPILOT_TEST_POSTGRES_URL=postgresql+psycopg://… uv run pytest`.
 
+**Сборка desktop-пакета:**
+```bash
+(cd backend && uv run python packaging/build_sidecar.py) && (cd apps/desktop && npx tauri build --config src-tauri/tauri.bundle.conf.json --bundles app)
+```
+Резервные копии: `POST /api/v1/backups` (кнопка в приложении); восстановление при закрытом приложении: `pricepilot-api restore --data-dir <папка данных> <имя копии>`.
+
 Данные dev-режима — `./.pricepilot-dev/` (в desktop — каталог данных приложения ОС). Сеть не нужна; внешние сервисы не вызываются.
 
 ## Как использовать

@@ -53,12 +53,28 @@ class ErrorResponse(BaseModel):
     error: ErrorDetail
 
 
+class MigrationOut(BaseModel):
+    from_revision: str
+    to_revision: str
+    backup: str = Field(description="Имя файла резервной копии в папке backups/ данных приложения")
+
+
 class HealthOut(BaseModel):
     status: str
     version: str
     api_version: str
     storage_mode: str
     database: str
+    schema_revision: str | None = None
+    migration: MigrationOut | None = Field(
+        default=None, description="Схема базы обновлена при этом запуске (копия создана заранее)"
+    )
+
+
+class BackupOut(BaseModel):
+    name: str
+    size_bytes: int
+    created_at: datetime
 
 
 class WorkspaceCreate(_Strict):

@@ -31,6 +31,7 @@ dev = [
     "mypy>=1.13",
     "psycopg[binary]>=3.2",
     "types-openpyxl>=3.1.5.20261017",
+    "pyinstaller>=6.10",
 ]
 
 [build-system]
@@ -52,6 +53,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S603"]
+# Developer build tool: runs rustc/PyInstaller from PATH and prints the output path.
+"packaging/**" = ["S603", "S607", "T201"]
 
 [tool.mypy]
 python_version = "3.12"

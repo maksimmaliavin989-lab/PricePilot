@@ -22,6 +22,14 @@ import uvicorn
 
 from pricepilot.api.app import create_app, openapi_document
 from pricepilot.config import LOOPBACK_HOST, TAURI_ORIGINS, ConfigError, Settings, default_data_dir
+from pricepilot.infrastructure.db.backup import (
+    AlreadyRunningError,
+    BackupError,
+    DataDirLock,
+    create_backup,
+    list_backups,
+    restore_backup,
+)
 from pricepilot.infrastructure.logging import configure_logging
 
 TOKEN_ENV = "PRICEPILOT_API_TOKEN"  # noqa: S105 - variable name, not a secret
@@ -57,6 +65,22 @@ def serve(args: argparse.Namespace) -> int:
             json.dumps({"event": "error", "code": "CONFIG_ERROR", "message": str(exc)}) + "\n"
         )
         return 2
+
+    lock = DataDirLock(settings.data_dir)
+    try:
+        lock.acquire()
+    except AlreadyRunningError:
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "event": "error",
+                    "code": "ALREADY_RUNNING",
+                    "message": "data directory is used by another PricePilot instance",
+                }
+            )
+            + "\n"
+        )
+        return 3
 
     configure_logging(settings.log_level, settings.log_dir if settings.log_to_file else None)
     sock = _bind_loopback(settings.port)
@@ -108,6 +132,40 @@ def openapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def _data_dir(args: argparse.Namespace) -> Path:
+    return Path(args.data_dir) if args.data_dir else default_data_dir()
+
+
+def backup(args: argparse.Namespace) -> int:
+    data_dir = _data_dir(args)
+    if args.list:
+        for item in list_backups(data_dir):
+            sys.stdout.write(f"{item.name}\t{item.size_bytes}\n")
+        return 0
+    try:
+        info = create_backup(data_dir / "pricepilot.sqlite3", data_dir, "manual")
+    except BackupError as exc:
+        sys.stderr.write(f"backup failed: {exc}\n")
+        return 1
+    sys.stdout.write(f"{info.name}\n")
+    return 0
+
+
+def restore(args: argparse.Namespace) -> int:
+    data_dir = _data_dir(args)
+    try:
+        with DataDirLock(data_dir):
+            info = restore_backup(args.name, data_dir / "pricepilot.sqlite3", data_dir)
+    except AlreadyRunningError:
+        sys.stderr.write("PricePilot is running: close the application before restoring\n")
+        return 3
+    except BackupError as exc:
+        sys.stderr.write(f"restore failed: {exc}\n")
+        return 1
+    sys.stdout.write(f"restored {info.name}; the previous database was backed up first\n")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pricepilot")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -119,6 +177,16 @@ def main(argv: list[str] | None = None) -> int:
     p_serve.add_argument("--allow-origin", action="append", help="allowed UI origin (repeatable)")
     p_serve.add_argument("--log-level", default="INFO")
     p_serve.set_defaults(func=serve)
+
+    p_backup = sub.add_parser("backup", help="back up the database (safe while running)")
+    p_backup.add_argument("--data-dir")
+    p_backup.add_argument("--list", action="store_true", help="list existing backups")
+    p_backup.set_defaults(func=backup)
+
+    p_restore = sub.add_parser("restore", help="restore a backup (application must be closed)")
+    p_restore.add_argument("--data-dir")
+    p_restore.add_argument("name", help="backup file name from 'backup --list'")
+    p_restore.set_defaults(func=restore)
 
     p_openapi = sub.add_parser("openapi", help="emit the OpenAPI document")
     group = p_openapi.add_mutually_exclusive_group()

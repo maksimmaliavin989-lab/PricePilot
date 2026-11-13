@@ -93,4 +93,25 @@ describe("ApiClient", () => {
     expect(error.code).toBe("API_UNREACHABLE");
     expect(error.message).not.toContain("127.0.0.1");
   });
+
+  it("re-reads the connection once after a network failure (restarted API)", async () => {
+    const seen: string[] = [];
+    let calls = 0;
+    const client = new ApiClient(
+      { baseUrl: "http://127.0.0.1:1111", token: "old" },
+      (input, init) => {
+        const request = new Request(input, init);
+        seen.push(`${request.url} ${request.headers.get("authorization") ?? ""}`);
+        calls += 1;
+        if (calls === 1) return Promise.reject(new TypeError("connection refused"));
+        return Promise.resolve(jsonResponse(200, { status: "ok" }));
+      },
+      () => Promise.resolve({ baseUrl: "http://127.0.0.1:2222", token: "new" }),
+    );
+    await client.health();
+    expect(seen).toEqual([
+      "http://127.0.0.1:1111/api/v1/health Bearer old",
+      "http://127.0.0.1:2222/api/v1/health Bearer new",
+    ]);
+  });
 });

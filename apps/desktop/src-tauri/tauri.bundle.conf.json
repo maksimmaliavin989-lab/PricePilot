@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "nsis"],
+    "category": "Business",
+    "shortDescription": "Local-first price list review for procurement",
+    "copyright": "PricePilot",
+    "externalBin": ["binaries/pricepilot-api"],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper" }
+    }
+  }
+}

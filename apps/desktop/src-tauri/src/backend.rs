@@ -42,7 +42,6 @@ pub enum BackendError {
     Refused(String),
     Exited,
     Timeout,
-    #[cfg(not(debug_assertions))]
     NotPackaged,
 }
 
@@ -60,8 +59,7 @@ impl fmt::Display for BackendError {
             Self::Refused(code) => write!(f, "локальный сервис отказался запускаться ({code})"),
             Self::Exited => write!(f, "локальный сервис завершился при запуске"),
             Self::Timeout => write!(f, "локальный сервис не ответил вовремя"),
-            #[cfg(not(debug_assertions))]
-            Self::NotPackaged => write!(f, "упаковка sidecar ещё не реализована (TASK_005)"),
+            Self::NotPackaged => write!(f, "локальный сервис не найден в пакете приложения"),
         }
     }
 }
@@ -84,6 +82,11 @@ pub struct BackendProcess {
 impl BackendProcess {
     pub fn connection(&self) -> BackendConnection {
         self.connection.clone()
+    }
+
+    /// True once the process has terminated (crash, kill or exit).
+    pub fn has_exited(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(Some(_)) | Err(_))
     }
 
     /// Close stdin (graceful stop), wait briefly, then kill as a last resort.
@@ -117,8 +120,7 @@ fn allowed_origins() -> Vec<&'static str> {
 }
 
 /// Dev builds run the backend from the repository via `uv`.
-#[cfg(debug_assertions)]
-fn backend_command() -> Result<Command, BackendError> {
+fn dev_command() -> Result<Command, BackendError> {
     let project = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../backend");
     let mut command = Command::new("uv");
     command
@@ -129,10 +131,38 @@ fn backend_command() -> Result<Command, BackendError> {
     Ok(command)
 }
 
-/// Release builds must use a bundled sidecar; packaging is TASK_005.
-#[cfg(not(debug_assertions))]
+/// Release builds run the sidecar that Tauri bundles next to the executable
+/// (`bundle.externalBin`; the target-triple suffix is removed when bundling).
+fn sidecar_command() -> Result<Command, BackendError> {
+    let exe = std::env::current_exe().map_err(|_| BackendError::NotPackaged)?;
+    let dir = exe.parent().ok_or(BackendError::NotPackaged)?;
+    let name = if cfg!(windows) {
+        "pricepilot-api.exe"
+    } else {
+        "pricepilot-api"
+    };
+    let path = dir.join(name);
+    if !path.is_file() {
+        return Err(BackendError::NotPackaged);
+    }
+    #[allow(unused_mut)]
+    let mut command = Command::new(path);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    Ok(command)
+}
+
+/// Both variants are compiled in every profile, so clippy checks the release path too.
 fn backend_command() -> Result<Command, BackendError> {
-    Err(BackendError::NotPackaged)
+    if cfg!(debug_assertions) {
+        dev_command()
+    } else {
+        sidecar_command()
+    }
 }
 
 fn stop_child(child: &mut Child) {

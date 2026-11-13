@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ApiClient, type Health, type Workspace } from "./api/client";
-import { resolveConnection } from "./api/connection";
+import { isTauri, resolveConnection } from "./api/connection";
 import { ErrorNotice } from "./components/ErrorNotice";
+import { BackupPanel } from "./components/BackupPanel";
 import { DocumentsView } from "./components/DocumentsView";
 import { SupplierPanel } from "./components/SupplierPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
@@ -49,7 +50,11 @@ export function App() {
     const state = { cancelled: false };
     void (async () => {
       try {
-        const api = new ApiClient(await resolveConnection());
+        const api = new ApiClient(
+          await resolveConnection(),
+          undefined,
+          isTauri() ? resolveConnection : undefined,
+        );
         const status = await api.health();
         const items = await fetchAllWorkspaces(api);
         if (state.cancelled) return;
@@ -126,14 +131,23 @@ export function App() {
       </header>
       <main>
         <ErrorNotice error={fatal} />
+        {health?.migration ? (
+          <div className="notice" role="status">
+            База данных обновлена до новой версии схемы ({health.migration.to_revision}). Перед
+            обновлением создана резервная копия: {health.migration.backup}.
+          </div>
+        ) : null}
         {client && view === "workspaces" ? (
-          <WorkspacePanel
-            client={client}
-            workspaces={workspaces}
-            activeId={active?.id ?? null}
-            onSelect={select}
-            onChanged={reloadWorkspaces}
-          />
+          <>
+            <WorkspacePanel
+              client={client}
+              workspaces={workspaces}
+              activeId={active?.id ?? null}
+              onSelect={select}
+              onChanged={reloadWorkspaces}
+            />
+            <BackupPanel client={client} />
+          </>
         ) : null}
         {client && view === "suppliers" && active ? (
           <SupplierPanel key={active.id} client={client} workspace={active} />

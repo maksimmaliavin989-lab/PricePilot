@@ -22,7 +22,16 @@ from pricepilot.api.middleware import (
     LocalGuardMiddleware,
     RequestContextMiddleware,
 )
-from pricepilot.api.routers import catalog, documents, fields, health, runs, suppliers, workspaces
+from pricepilot.api.routers import (
+    backups,
+    catalog,
+    documents,
+    fields,
+    health,
+    runs,
+    suppliers,
+    workspaces,
+)
 from pricepilot.api.schemas import ErrorResponse
 from pricepilot.application.catalog import CatalogService
 from pricepilot.application.documents import DocumentService, ProcessingService
@@ -33,6 +42,7 @@ from pricepilot.application.source import SourceService
 from pricepilot.config import ALLOWED_HOST_NAMES, MAX_JSON_BODY_BYTES, Settings
 from pricepilot.dip.adapters.registry import ParserRegistry
 from pricepilot.dip.limits import DEFAULT_LIMITS
+from pricepilot.infrastructure.db.backup import backup_before_migration
 from pricepilot.infrastructure.db.engine import build_engine, sqlite_url
 from pricepilot.infrastructure.db.migrate import upgrade_to_head
 from pricepilot.infrastructure.db.uow import SqlUnitOfWork
@@ -100,7 +110,13 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.data_dir.mkdir(parents=True, exist_ok=True)
         engine = build_engine(sqlite_url(settings.database_path))
+        app.state.migration = backup_before_migration(
+            engine, settings.database_path, settings.data_dir
+        )
+        if app.state.migration is not None:
+            logger.info("schema upgrade with backup", extra={"event": "migration"})
         upgrade_to_head(engine)
+        app.state.settings = settings
         app.state.engine = engine
         runtime = build_runtime(
             engine,
@@ -139,6 +155,7 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
     app.include_router(runs.router, prefix=API_PREFIX)
     app.include_router(fields.router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
+    app.include_router(backups.router, prefix=API_PREFIX)
 
     # Order: last added is outermost → RequestContext → CORS → LocalGuard → routes.
     app.add_middleware(
