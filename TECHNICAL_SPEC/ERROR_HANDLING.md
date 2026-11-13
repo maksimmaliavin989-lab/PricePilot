@@ -23,6 +23,7 @@
 | `INVALID_HOST` | 400 | `Host` не loopback |
 | `LIMIT_EXCEEDED` | 413 | Тело запроса больше лимита; `details.max_bytes` |
 | `METHOD_NOT_ALLOWED` | 405 | Метод не поддерживается |
+| `INTERRUPTED` | — (код запуска) | Обработка прервана перезапуском приложения; запуск автоматически повторяется (до 3 попыток) |
 | `DATABASE_ERROR` / `INTERNAL_ERROR` | 500 | Сбой; детали только в локальном логе по correlation id |
 
 ## Поведение

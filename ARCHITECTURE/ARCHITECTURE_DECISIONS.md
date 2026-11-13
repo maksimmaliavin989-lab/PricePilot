@@ -23,11 +23,15 @@
 - Backend: FastAPI (MIT), Starlette (BSD-3), Uvicorn (BSD-3), Pydantic (MIT), SQLAlchemy 2 Core (MIT), Alembic (MIT), platformdirs (MIT). FastAPI тянет `opentelemetry-api` (Apache-2.0) — только API, без экспортёров и сетевой отправки. Dev: pytest (MIT), httpx (BSD-3), ruff (MIT), mypy (MIT); окружение — uv.
 - UI: React 19 (MIT), Vite 8 (MIT), TypeScript 5.9 (Apache-2.0; 5.x, так как openapi-typescript/typescript-eslint ещё не поддерживают 7.x), openapi-typescript (MIT), ESLint + typescript-eslint (MIT), Prettier (MIT), Vitest (MIT), `@tauri-apps/api` (MIT/Apache-2.0).
 - Desktop: Tauri 2 (MIT/Apache-2.0), serde/serde_json, getrandom (MIT/Apache-2.0). Плагины Tauri не подключены.
+- Импорт (TASK_003): openpyxl (MIT) в режиме read-only, формулы не вычисляются; defusedxml (PSF) — защита XML от billion-laughs/XXE, openpyxl подключает его автоматически. CSV — стандартная библиотека.
 - PostgreSQL-драйвер: psycopg 3 (`psycopg[binary]`, LGPL-3.0, динамическая библиотека) — только extra `postgres` и dev-зависимость; локальная сборка его не требует.
 - ORM-классы не используются: таблицы описаны SQLAlchemy Core, доменные сущности — dataclasses; репозитории в `infrastructure/db`.
 
 ## ADR-008: Запуск локального API и handshake
 **Статус:** принято. Shell генерирует 256-битный токен на запуск и передаёт его в stdin процесса API (не в argv/env/файлах). API привязан только к `127.0.0.1` без параметра хоста; порт `0` выбирает ОС; готовность — JSON-строка в stdout. Stdin остаётся открытым: EOF (выход или падение shell) завершает API. Дополнительно: проверка `Host` и `Origin`, CORS только для UI origins, лимит тела. UI получает адрес и токен командой Tauri `backend_connection`; в браузерном dev-режиме токен добавляет Vite proxy, в бандл он не попадает. Миграции выполняются автоматически при старте; диалог миграции и backup — TASK_005.
+
+## ADR-009: Хранилище оригиналов и фоновая обработка (TASK_003)
+**Статус:** принято для MVP. Оригиналы — content-addressed `originals/<aa>/<bb>/<sha256>` в каталоге данных, атомарный rename из `incoming/`, режим read-only, проверка хэша при чтении; один файл хранится один раз. Очередь — состояние запусков в БД + один фоновый поток; после перезапуска прерванные запуски помечаются `INTERRUPTED` и повторяются. **Ограничение:** парсеры работают в процессе API (лимиты размера/строк/ZIP есть, жёсткого таймаута и изоляции процесса нет) — вынести в отдельный процесс в TASK_005.
 
 ## Нерешённые ADR
 Выбор OCR движка/лицензии, конкретная модель синхронизации, политика курсов FX, налоговые/таможенные правила по юрисдикциям, cloud provider, SSO/командные роли. До решения использовать локальный интерфейс и явные вводимые параметры.

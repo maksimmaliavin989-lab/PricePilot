@@ -11,7 +11,7 @@ from uuid import UUID
 
 from pricepilot.domain.audit import AuditEvent
 from pricepilot.domain.catalog import Product, ProductIdentifier
-from pricepilot.domain.documents import DocumentStatus, ProcessingRun, SourceDocument
+from pricepilot.domain.documents import DocumentStatus, ProcessingRun, RunStatus, SourceDocument
 from pricepilot.domain.extraction import ExtractedField, ExtractedLine, FieldRevision
 from pricepilot.domain.suppliers import Supplier
 from pricepilot.domain.workspaces import Workspace
@@ -124,6 +124,8 @@ class RunRepository(Protocol):
     def find(self, document_id: UUID, pipeline: str, config_hash: str) -> ProcessingRun | None: ...
 
     def latest_for_document(self, document_id: UUID) -> ProcessingRun | None: ...
+
+    def list_by_status(self, statuses: frozenset[RunStatus]) -> list[ProcessingRun]: ...
 
     def update(self, run: ProcessingRun, expected_version: int) -> bool: ...
 

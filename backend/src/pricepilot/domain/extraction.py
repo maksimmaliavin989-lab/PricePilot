@@ -25,6 +25,7 @@ from pricepilot.domain.common import (
 from pricepilot.domain.values import Money, Quantity, decimal_text, parse_decimal, unit_code
 
 _FIELD_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_REASON_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 _CELL_RE = re.compile(r"^[A-Z]{1,3}[1-9][0-9]{0,6}$")
 MAX_RAW_TEXT = 10_000
 MAX_REASON = 1_000
@@ -175,6 +176,8 @@ class Provenance:
     extractor_version: str
     pipeline_version: str
     method: str  # e.g. "spreadsheet_cell", "pdf_text", "ocr", "user"
+    header: str | None = None  # source column heading, e.g. "Опт, руб."
+    formula: str | None = None  # spreadsheet formula text (never evaluated)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -184,6 +187,8 @@ class Provenance:
             "extractor_version": self.extractor_version,
             "pipeline_version": self.pipeline_version,
             "method": self.method,
+            "header": self.header,
+            "formula": self.formula,
         }
 
 
@@ -330,11 +335,20 @@ class ExtractedLine:
     raw_text: str
     location: SourceLocation
     status: LineStatus
+    review_reasons: tuple[str, ...] = ()
 
     @staticmethod
     def extracted(
-        *, run_id: UUID, ordinal: int, raw_text: str, location: SourceLocation, needs_review: bool
+        *,
+        run_id: UUID,
+        ordinal: int,
+        raw_text: str,
+        location: SourceLocation,
+        review_reasons: tuple[str, ...] = (),
     ) -> ExtractedLine:
+        for reason in review_reasons:
+            if not _REASON_RE.fullmatch(reason):
+                raise DomainValidationError("review_reasons", "Код причины: UPPER_SNAKE_CASE.")
         if ordinal < 1:
             raise DomainValidationError("ordinal", "Порядковый номер строки начинается с 1.")
         if len(raw_text) > MAX_RAW_TEXT:
@@ -345,7 +359,8 @@ class ExtractedLine:
             ordinal=ordinal,
             raw_text=raw_text,
             location=location,
-            status=LineStatus.REVIEW_REQUIRED if needs_review else LineStatus.PENDING,
+            status=LineStatus.REVIEW_REQUIRED if review_reasons else LineStatus.PENDING,
+            review_reasons=tuple(dict.fromkeys(review_reasons)),
         )
 
 
@@ -360,6 +375,8 @@ class NewField:
     confidence: float | None
     location: SourceLocation
     method: str
+    header: str | None = None
+    formula: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -367,4 +384,4 @@ class NewLine:
     raw_text: str
     location: SourceLocation
     fields: tuple[NewField, ...]
-    needs_review: bool = False
+    review_reasons: tuple[str, ...] = ()  # why a person must check this line

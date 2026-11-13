@@ -112,12 +112,16 @@ class LocalGuardMiddleware:
         allowed_hosts: frozenset[str],
         allowed_origins: frozenset[str],
         max_body_bytes: int,
+        upload_paths: frozenset[str] = frozenset(),
+        max_upload_bytes: int = 0,
     ) -> None:
         self.app = app
         self._token = token.encode()
         self._hosts = allowed_hosts
         self._origins = allowed_origins
         self._max_body = max_body_bytes
+        self._upload_paths = upload_paths
+        self._max_upload = max_upload_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -150,20 +154,23 @@ class LocalGuardMiddleware:
             )
             return
 
+        limit = self._max_body
+        if scope.get("method") == "POST" and scope.get("path") in self._upload_paths:
+            limit = self._max_upload
         if scope.get("method") in _BODY_METHODS:
             length = _header(scope, b"content-length")
-            if length is not None and (not length.isdigit() or int(length) > self._max_body):
+            if length is not None and (not length.isdigit() or int(length) > limit):
                 await _send_json(
                     send,
                     413,
                     error_body(
                         "LIMIT_EXCEEDED",
                         "Слишком большой запрос.",
-                        {"max_bytes": self._max_body},
+                        {"max_bytes": limit},
                     ),
                 )
                 return
-            receive = self._limited_receive(receive)
+            receive = self._limited_receive(receive, limit)
 
         started = False
 
@@ -181,14 +188,11 @@ class LocalGuardMiddleware:
             await _send_json(
                 send,
                 413,
-                error_body(
-                    "LIMIT_EXCEEDED", "Слишком большой запрос.", {"max_bytes": self._max_body}
-                ),
+                error_body("LIMIT_EXCEEDED", "Слишком большой запрос.", {"max_bytes": limit}),
             )
 
-    def _limited_receive(self, receive: Receive) -> Receive:
+    def _limited_receive(self, receive: Receive, limit: int) -> Receive:
         received = 0
-        limit = self._max_body
 
         async def wrapper() -> Message:
             nonlocal received

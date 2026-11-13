@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
@@ -24,13 +26,18 @@ from pricepilot.api.routers import catalog, documents, fields, health, runs, sup
 from pricepilot.api.schemas import ErrorResponse
 from pricepilot.application.catalog import CatalogService
 from pricepilot.application.documents import DocumentService, ProcessingService
+from pricepilot.application.intake import ImportService, PipelineRunner
 from pricepilot.application.review import ReviewService
 from pricepilot.application.services import SupplierService, WorkspaceService
 from pricepilot.config import ALLOWED_HOST_NAMES, MAX_JSON_BODY_BYTES, Settings
+from pricepilot.dip.adapters.registry import ParserRegistry
+from pricepilot.dip.limits import DEFAULT_LIMITS
 from pricepilot.infrastructure.db.engine import build_engine, sqlite_url
 from pricepilot.infrastructure.db.migrate import upgrade_to_head
 from pricepilot.infrastructure.db.uow import SqlUnitOfWork
 from pricepilot.infrastructure.logging import correlation_id_var, register_secret
+from pricepilot.infrastructure.storage.file_store import LocalOriginalStore
+from pricepilot.infrastructure.worker import InlineWorker, ThreadWorker
 
 API_PREFIX = "/api/v1"
 logger = logging.getLogger("pricepilot.api")
@@ -40,19 +47,48 @@ _ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-def build_services(engine: Engine) -> Services:
+@dataclass(frozen=True, slots=True)
+class Runtime:
+    services: Services
+    store: LocalOriginalStore
+    worker: InlineWorker | ThreadWorker
+
+
+def build_runtime(
+    engine: Engine,
+    data_dir: Path,
+    *,
+    max_upload_bytes: int = DEFAULT_LIMITS.max_file_bytes,
+    inline_worker: bool = True,
+) -> Runtime:
     def uow() -> SqlUnitOfWork:
         return SqlUnitOfWork(engine)
 
     correlation = correlation_id_var.get
-    return Services(
+    limits = replace(DEFAULT_LIMITS, max_file_bytes=max_upload_bytes)
+    store = LocalOriginalStore(data_dir, max_bytes=limits.max_file_bytes)
+    registry = ParserRegistry()
+    documents = DocumentService(uow, correlation=correlation)
+    processing = ProcessingService(uow, correlation=correlation)
+    runner = PipelineRunner(uow, documents, processing, store, registry, limits)
+    worker: InlineWorker | ThreadWorker = (
+        InlineWorker(runner) if inline_worker else ThreadWorker(runner)
+    )
+    services = Services(
         workspaces=WorkspaceService(uow, correlation=correlation),
         suppliers=SupplierService(uow, correlation=correlation),
-        documents=DocumentService(uow, correlation=correlation),
-        processing=ProcessingService(uow, correlation=correlation),
+        documents=documents,
+        processing=processing,
         review=ReviewService(uow, correlation=correlation),
         catalog=CatalogService(uow, correlation=correlation),
+        imports=ImportService(documents, processing, store, registry, limits, worker.submit),
     )
+    return Runtime(services=services, store=store, worker=worker)
+
+
+def build_services(engine: Engine, data_dir: Path) -> Services:
+    """Services with a synchronous worker (tests and tooling)."""
+    return build_runtime(engine, data_dir).services
 
 
 def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -> FastAPI:
@@ -64,13 +100,23 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
         engine = build_engine(sqlite_url(settings.database_path))
         upgrade_to_head(engine)
         app.state.engine = engine
-        app.state.services = build_services(engine)
+        runtime = build_runtime(
+            engine,
+            settings.data_dir,
+            max_upload_bytes=settings.max_upload_bytes,
+            inline_worker=settings.worker_mode == "inline",
+        )
+        runtime.store.clean_incoming()
+        app.state.services = runtime.services
+        app.state.store = runtime.store
+        runtime.worker.start()
         logger.info("api started", extra={"event": "startup"})
         if on_ready is not None:
             on_ready()
         try:
             yield
         finally:
+            runtime.worker.stop()
             engine.dispose()
             logger.info("api stopped", extra={"event": "shutdown"})
 
@@ -99,12 +145,20 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
         allowed_hosts=ALLOWED_HOST_NAMES,
         allowed_origins=frozenset(settings.allowed_origins),
         max_body_bytes=MAX_JSON_BODY_BYTES,
+        upload_paths=frozenset({f"{API_PREFIX}/documents"}),
+        max_upload_bytes=settings.max_upload_bytes,
     )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
         allow_methods=["GET", "POST", "PATCH"],
-        allow_headers=["authorization", "content-type", "if-match", CORRELATION_HEADER],
+        allow_headers=[
+            "authorization",
+            "content-type",
+            "if-match",
+            "x-file-name",
+            CORRELATION_HEADER,
+        ],
         expose_headers=["etag", CORRELATION_HEADER],
         allow_credentials=False,
         max_age=600,

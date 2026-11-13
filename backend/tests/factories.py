@@ -32,7 +32,7 @@ def price_line(n: int, *, amount: str = "1234.50", review: bool = False) -> NewL
     return NewLine(
         raw_text=f"Цемент М500 Д0, мешок 50 кг | шт. | {amount}",
         location=SourceLocation(sheet="Прайс", row=row),
-        needs_review=review,
+        review_reasons=("MISSING_UNIT",) if review else (),
         fields=(
             NewField(
                 key="name",

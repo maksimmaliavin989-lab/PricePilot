@@ -11,6 +11,8 @@ dependencies = [
     "sqlalchemy>=2.0.36",
     "alembic>=1.14",
     "platformdirs>=4.3",
+    "openpyxl>=3.1",
+    "defusedxml>=0.7",
 ]
 
 [project.scripts]
@@ -28,6 +30,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "psycopg[binary]>=3.2",
+    "types-openpyxl>=3.1.5.20261017",
 ]
 
 [build-system]

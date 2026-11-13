@@ -66,3 +66,11 @@ class DuplicateExtractionError(ApplicationError):
             "Строки этого запуска уже сохранены; повторная запись не создаёт дублей.",
             {"entity": "processing_run"},
         )
+
+
+class ImportRejectedError(ApplicationError):
+    """The upload itself is unacceptable (empty, oversized); nothing is stored."""
+
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message, details)
+        self.code = code

@@ -1399,6 +1399,186 @@
             "description": "Internal Server Error"
           }
         }
+      },
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Импортировать файл (тело запроса — байты файла)",
+        "operationId": "upload_document_api_v1_documents_post",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
+            }
+          },
+          {
+            "name": "supplier_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Supplier Id"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImportSource",
+              "default": "file_picker"
+            }
+          },
+          {
+            "name": "x-file-name",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024,
+              "description": "Имя файла в percent-encoding UTF-8 (например, encodeURIComponent)",
+              "title": "X-File-Name"
+            },
+            "description": "Имя файла в percent-encoding UTF-8 (например, encodeURIComponent)"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "200": {
+            "description": "Дубликат: файл уже импортирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/documents/{document_id}": {
@@ -1689,6 +1869,139 @@
               }
             },
             "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}/processing-runs": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Запустить обработку текущей версией pipeline (идемпотентно)",
+        "operationId": "start_processing_api_v1_documents__document_id__processing_runs_post",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingRunOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "200": {
+            "description": "Такой запуск уже есть",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingRunOut"
+                }
+              }
+            }
           }
         }
       }
@@ -3648,6 +3961,82 @@
         ],
         "title": "IdentifierScheme"
       },
+      "ImportErrorOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ImportErrorOut"
+      },
+      "ImportOut": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DocumentOut"
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessingRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of",
+            "description": "Тот же файл (SHA-256) уже импортирован в это рабочее пространство"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportErrorOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Файл сохранён, но не будет/не может быть обработан: код и объяснение"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "run",
+          "duplicate_of",
+          "error"
+        ],
+        "title": "ImportOut"
+      },
+      "ImportSource": {
+        "type": "string",
+        "enum": [
+          "file_picker",
+          "drag_drop",
+          "folder"
+        ],
+        "title": "ImportSource"
+      },
       "LineOut": {
         "properties": {
           "id": {
@@ -3674,6 +4063,14 @@
           "status": {
             "$ref": "#/components/schemas/LineStatus"
           },
+          "review_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Review Reasons",
+            "description": "Почему строку должен проверить человек: MULTIPLE_PRICE_COLUMNS, AMBIGUOUS_NUMBER, INVALID_NUMBER, MISSING_PRICE, MISSING_UNIT, UNKNOWN_UNIT, ASSUMED_CURRENCY"
+          },
           "fields": {
             "items": {
               "$ref": "#/components/schemas/FieldOut"
@@ -3690,6 +4087,7 @@
           "raw_text",
           "source",
           "status",
+          "review_reasons",
           "fields"
         ],
         "title": "LineOut"
@@ -4140,6 +4538,28 @@
           "method": {
             "type": "string",
             "title": "Method"
+          },
+          "header": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Header"
+          },
+          "formula": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formula"
           }
         },
         "type": "object",

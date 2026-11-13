@@ -223,6 +223,7 @@ extracted_lines = Table(
     Column("cell", String(16), nullable=True),
     Column("region_json", PortableJSON, nullable=True),
     Column("line_status", String(24), nullable=False),
+    Column("review_reasons_json", PortableJSON, nullable=True),
     CheckConstraint("ordinal >= 1", name="ordinal_positive"),
     CheckConstraint(_in("line_status", LINE_STATUSES), name="status_allowed"),
     UniqueConstraint("run_id", "ordinal"),

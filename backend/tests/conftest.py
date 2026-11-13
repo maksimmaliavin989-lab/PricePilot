@@ -17,6 +17,7 @@ from pricepilot.infrastructure.db.engine import build_engine, sqlite_url
 from pricepilot.infrastructure.db.migrate import upgrade_to_head
 
 UI_ORIGIN = "http://localhost:5173"
+UPLOAD_LIMIT = 2 * 1024 * 1024  # small, so oversize tests stay fast
 BASE_URL = "http://127.0.0.1"
 
 
@@ -44,6 +45,8 @@ def client_factory(data_dir: Path, token: str) -> ClientFactory:
             api_token=token,
             allowed_origins=("tauri://localhost", UI_ORIGIN),
             log_to_file=False,
+            worker_mode="inline",
+            max_upload_bytes=UPLOAD_LIMIT,
         )
         with TestClient(
             create_app(settings),
@@ -97,5 +100,5 @@ def engine(bare_engine: Engine) -> Engine:
 
 
 @pytest.fixture
-def svc(engine: Engine) -> Services:
-    return build_services(engine)
+def svc(engine: Engine, tmp_path: Path) -> Services:
+    return build_services(engine, tmp_path / "files")

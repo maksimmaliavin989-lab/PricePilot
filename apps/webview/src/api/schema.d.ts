@@ -103,7 +103,8 @@ export interface paths {
         /** Документы рабочего пространства */
         get: operations["list_documents_api_v1_documents_get"];
         put?: never;
-        post?: never;
+        /** Импортировать файл (тело запроса — байты файла) */
+        post: operations["upload_document_api_v1_documents_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -138,6 +139,23 @@ export interface paths {
         get: operations["list_lines_api_v1_documents__document_id__lines_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{document_id}/processing-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Запустить обработку текущей версией pipeline (идемпотентно) */
+        post: operations["start_processing_api_v1_documents__document_id__processing_runs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -495,6 +513,30 @@ export interface components {
          * @enum {string}
          */
         IdentifierScheme: "gtin" | "supplier_sku" | "manufacturer_code" | "other";
+        /** ImportErrorOut */
+        ImportErrorOut: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /** ImportOut */
+        ImportOut: {
+            document: components["schemas"]["DocumentOut"];
+            run: components["schemas"]["ProcessingRunOut"] | null;
+            /**
+             * Duplicate Of
+             * @description Тот же файл (SHA-256) уже импортирован в это рабочее пространство
+             */
+            duplicate_of: string | null;
+            /** @description Файл сохранён, но не будет/не может быть обработан: код и объяснение */
+            error: components["schemas"]["ImportErrorOut"] | null;
+        };
+        /**
+         * ImportSource
+         * @enum {string}
+         */
+        ImportSource: "file_picker" | "drag_drop" | "folder";
         /** LineOut */
         LineOut: {
             /**
@@ -513,6 +555,11 @@ export interface components {
             raw_text: string;
             source: components["schemas"]["SourceLocationOut"];
             status: components["schemas"]["LineStatus"];
+            /**
+             * Review Reasons
+             * @description Почему строку должен проверить человек: MULTIPLE_PRICE_COLUMNS, AMBIGUOUS_NUMBER, INVALID_NUMBER, MISSING_PRICE, MISSING_UNIT, UNKNOWN_UNIT, ASSUMED_CURRENCY
+             */
+            review_reasons: string[];
             /** Fields */
             fields: components["schemas"]["FieldOut"][];
         };
@@ -673,6 +720,10 @@ export interface components {
             pipeline_version: string;
             /** Method */
             method: string;
+            /** Header */
+            header?: string | null;
+            /** Formula */
+            formula?: string | null;
         };
         /** RegionOut */
         RegionOut: {
@@ -1984,6 +2035,127 @@ export interface operations {
             };
         };
     };
+    upload_document_api_v1_documents_post: {
+        parameters: {
+            query: {
+                workspace_id: string;
+                supplier_id?: string | null;
+                source?: components["schemas"]["ImportSource"];
+            };
+            header: {
+                /** @description Имя файла в percent-encoding UTF-8 (например, encodeURIComponent) */
+                "x-file-name": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Дубликат: файл уже импортирован */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_document_api_v1_documents__document_id__get: {
         parameters: {
             query?: never;
@@ -2109,6 +2281,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinePageOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    start_processing_api_v1_documents__document_id__processing_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Такой запуск уже есть */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRunOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessingRunOut"];
                 };
             };
             /** @description Bad Request */

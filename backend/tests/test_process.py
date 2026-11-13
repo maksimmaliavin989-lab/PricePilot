@@ -118,3 +118,48 @@ def test_serve_refuses_short_token(tmp_path: Path) -> None:
     )
     assert result.returncode == 2
     assert json.loads(result.stdout)["code"] == "CONFIG_ERROR"
+
+
+def test_serve_processes_upload_in_background_thread(tmp_path: Path) -> None:
+    import time
+    from urllib.parse import quote
+
+    fixture = (
+        Path(__file__).resolve().parents[2]
+        / "tests/fixtures/price-lists/Прайс_3_krovlya_pilomaterialy.xlsx"
+    )
+    token = secrets.token_urlsafe(32)
+    proc, port = _start(tmp_path, token)
+    base = f"http://127.0.0.1:{port}/api/v1"
+    auth = {"Authorization": f"Bearer {token}"}
+    try:
+        ws_req = urllib.request.Request(  # noqa: S310 - loopback test URL
+            f"{base}/workspaces",
+            data=json.dumps(
+                {"name": "WS", "locale": "ru-RU", "base_currency": "RUB", "country_code": "RU"}
+            ).encode(),
+            headers={**auth, "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(ws_req, timeout=5) as resp:  # noqa: S310 - loopback
+            ws_id = json.loads(resp.read())["id"]
+        up = urllib.request.Request(  # noqa: S310 - loopback test URL
+            f"{base}/documents?workspace_id={ws_id}",
+            data=fixture.read_bytes(),
+            headers={**auth, "X-File-Name": quote(fixture.name)},
+            method="POST",
+        )
+        with urllib.request.urlopen(up, timeout=10) as resp:  # noqa: S310 - loopback
+            run_id = json.loads(resp.read())["run"]["id"]
+        deadline = time.monotonic() + 30
+        status = None
+        while time.monotonic() < deadline:
+            _code, run = _request(port, token, f"/api/v1/processing-runs/{run_id}")
+            status = run["status"]
+            if status in {"completed", "review_required", "failed"}:
+                break
+            time.sleep(0.1)
+        assert status == "completed"
+        assert run["counts"]["lines"] == 39
+    finally:
+        assert _stop(proc) == 0

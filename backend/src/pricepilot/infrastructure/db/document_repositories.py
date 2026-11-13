@@ -122,6 +122,7 @@ def _line(row: Row[Any]) -> ExtractedLine:
             region=region,
         ),
         status=LineStatus(row.line_status),
+        review_reasons=tuple(row.review_reasons_json or ()),
     )
 
 
@@ -262,6 +263,14 @@ class SqlRunRepository:
         ).first()
         return _run(row) if row else None
 
+    def list_by_status(self, statuses: frozenset[RunStatus]) -> list[ProcessingRun]:
+        rows = self._c.execute(
+            select(processing_runs)
+            .where(processing_runs.c.status.in_([s.value for s in statuses]))
+            .order_by(processing_runs.c.created_at, processing_runs.c.id)
+        )
+        return [_run(r) for r in rows]
+
     def update(self, run: ProcessingRun, expected_version: int) -> bool:
         result = self._c.execute(
             processing_runs.update()
@@ -290,6 +299,7 @@ class SqlExtractionRepository:
                 cell=loc.cell,
                 region_json=loc.region.to_json() if loc.region else None,
                 line_status=line.status.value,
+                review_reasons_json=list(line.review_reasons),
             )
         )
         if fields:

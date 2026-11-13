@@ -336,6 +336,8 @@ class ProvenanceOut(SourceLocationOut):
     extractor_version: str
     pipeline_version: str
     method: str
+    header: str | None = None
+    formula: str | None = None
 
 
 class FieldOut(BaseModel):
@@ -380,6 +382,11 @@ class LineOut(BaseModel):
     raw_text: str
     source: SourceLocationOut
     status: LineStatus
+    review_reasons: list[str] = Field(
+        description="Почему строку должен проверить человек: MULTIPLE_PRICE_COLUMNS, "
+        "AMBIGUOUS_NUMBER, INVALID_NUMBER, MISSING_PRICE, MISSING_UNIT, UNKNOWN_UNIT, "
+        "ASSUMED_CURRENCY"
+    )
     fields: list[FieldOut]
 
     @staticmethod
@@ -392,6 +399,7 @@ class LineOut(BaseModel):
             raw_text=line.raw_text,
             source=SourceLocationOut.model_validate(line.location.to_json()),
             status=line.status,
+            review_reasons=list(line.review_reasons),
             fields=[FieldOut.of(f) for f in item.fields],
         )
 
@@ -522,3 +530,19 @@ class UnitOut(BaseModel):
     ucum: str
     label_ru: str
     label_en: str
+
+
+class ImportErrorOut(BaseModel):
+    code: str
+    message: str
+
+
+class ImportOut(BaseModel):
+    document: DocumentOut
+    run: ProcessingRunOut | None
+    duplicate_of: UUID | None = Field(
+        description="Тот же файл (SHA-256) уже импортирован в это рабочее пространство"
+    )
+    error: ImportErrorOut | None = Field(
+        description="Файл сохранён, но не будет/не может быть обработан: код и объяснение"
+    )

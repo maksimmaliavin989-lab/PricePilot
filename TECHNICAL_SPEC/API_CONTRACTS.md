@@ -26,8 +26,17 @@ Base path `/api/v1`. JSON UTF-8. OpenAPI — источник синхрониз
 - `GET /documents/{id}/lines?run_id=&cursor=`; provenance включает source coordinates.
 - `PATCH /extracted-fields/{id}` `{value,reason,expected_revision}`; optimistic concurrency.
 
+### Реализовано в TASK_003 — импорт
+- `POST /documents?workspace_id=&supplier_id=&source=file_picker|drag_drop|folder` — **тело запроса = байты файла** (`application/octet-stream`), имя — заголовок `X-File-Name` в percent-encoding UTF-8. *Отклонение от исходного «multipart»:* поток пишется сразу во внутренний карантин `incoming/` с подсчётом SHA-256 и лимитом размера, без системных временных файлов и без дополнительной multipart-зависимости.
+- Ответ `201 {document, run, duplicate_of: null, error}`; повтор тех же байтов в workspace → `200` с `duplicate_of = id` существующего документа, без новой записи, запуска и строк (идемпотентность по SHA-256).
+- `error` (`{code, message}`) заполнен, если файл **сохранён, но не обработан**: `UNSUPPORTED_FORMAT` (DOC; неизвестное содержимое; PDF/DOCX/XLS/изображения до появления адаптеров — запуск `failed`, `retryable=false`), `INVALID_CONTENT` (повреждён или содержимое не совпадает с расширением), `PASSWORD_REQUIRED`, `LIMIT_EXCEEDED` (ZIP-бомба), `NO_TABLE_FOUND`. Оригинал при этом хранится (неизменяемый, read-only).
+- Ничего не сохраняется для: пустого файла (`422 INVALID_CONTENT`), файла больше лимита (`413 LIMIT_EXCEEDED`, по умолчанию 50 МБ), имени с путём (`422`), несуществующего workspace/поставщика (`404`).
+- Обработка идёт в фоне: клиент опрашивает `GET /processing-runs/{id}`. Итог `completed` (строки без замечаний) или `review_required` (у строк есть `review_reasons`).
+- `POST /documents/{id}/processing-runs` — запуск текущей версией pipeline (идемпотентно, `200` если уже есть); для формата без адаптера → `409 INVALID_STATE`.
+- Строки (`GET /documents/{id}/lines`) получили `review_reasons[]`; `provenance` — `header` (заголовок исходного столбца) и `formula` (текст формулы, не вычисляется). Несколько столбцов цен → поля `price_1…price_n` + `MULTIPLE_PRICE_COLUMNS`, ни одна цена не выбирается автоматически.
+
 ### Реализовано в TASK_002
-- Документы создаются только через application service `DocumentService.register` (дедупликация по `(workspace_id, sha256)`); HTTP `POST /documents` и запуск обработки — TASK_003.
+- Документы регистрируются через `DocumentService.register` (дедупликация по `(workspace_id, sha256)`).
 - `GET /documents?workspace_id=&status=&supplier_id=&cursor=&limit=` — `workspace_id` обязателен; `GET /documents/{id}` → `{…, status, latest_run_id, version}` + `ETag`. `storage_key` наружу не отдаётся.
 - `GET /processing-runs/{id}` → `{status, attempt, progress{stage,completed,total}, error{code,retryable}, counts{lines,fields,lines_review_required}, started_at, finished_at}`. `POST …/cancel` — для незавершённых; `POST …/retry` — только `failed` с `retryable=true`, иначе `409 INVALID_STATE`.
 - `GET /documents/{id}/lines?run_id=&cursor=&limit=` — по умолчанию последний запуск; курсор по порядковому номеру строки; каждая строка содержит `source` и `fields[]` с `provenance` (`source_document_id, sheet, page, row, column, cell, region{x,y,width,height} в 0..1, localization: exact|approximate|none, extractor, extractor_version, pipeline_version, method`). Чужой `run_id` → `404`.

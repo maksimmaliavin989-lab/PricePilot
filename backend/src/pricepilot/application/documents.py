@@ -133,6 +133,16 @@ class DocumentService:
             uow.commit()
         return Registration(document, duplicate=False)
 
+    def check_target(self, workspace_id: UUID, supplier_id: UUID | None) -> None:
+        """Validate the destination before any bytes are stored."""
+        with self._uow() as uow:
+            if uow.workspaces.get(workspace_id) is None:
+                raise NotFoundError("workspace")
+            if supplier_id is not None:
+                supplier = uow.suppliers.get(supplier_id)
+                if supplier is None or supplier.workspace_id != workspace_id:
+                    raise NotFoundError("supplier")
+
     def get(self, document_id: UUID) -> SourceDocument:
         with self._uow() as uow:
             document = uow.documents.get(document_id)
@@ -290,7 +300,7 @@ class ProcessingService:
                     ordinal=ordinal,
                     raw_text=new_line.raw_text,
                     location=new_line.location,
-                    needs_review=new_line.needs_review,
+                    review_reasons=new_line.review_reasons,
                 )
                 fields = [
                     ExtractedField.extracted(
@@ -307,6 +317,8 @@ class ProcessingService:
                             extractor_version=extractor_version,
                             pipeline_version=run.pipeline_version,
                             method=f.method,
+                            header=f.header,
+                            formula=f.formula,
                         ),
                     )
                     for f in new_line.fields
@@ -315,6 +327,10 @@ class ProcessingService:
             counts = uow.extraction.counts(run_id)
             uow.commit()
         return counts
+
+    def runs_in(self, statuses: frozenset[RunStatus]) -> list[ProcessingRun]:
+        with self._uow() as uow:
+            return uow.runs.list_by_status(statuses)
 
     def get(self, run_id: UUID) -> RunView:
         with self._uow() as uow:

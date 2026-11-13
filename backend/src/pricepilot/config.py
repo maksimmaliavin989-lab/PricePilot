@@ -51,11 +51,15 @@ class Settings:
     log_level: str = "INFO"
     log_to_file: bool = True
     enable_docs: bool = False
+    max_upload_bytes: int = 50 * 1024 * 1024
+    worker_mode: str = "thread"  # "thread" (app) or "inline" (tests: deterministic)
     host: str = field(default=LOOPBACK_HOST, init=False)
 
     def __post_init__(self) -> None:
         if len(self.api_token) < MIN_TOKEN_LENGTH:
             raise ConfigError(f"API token must be at least {MIN_TOKEN_LENGTH} characters")
+        if self.worker_mode not in {"thread", "inline"}:
+            raise ConfigError("worker_mode must be 'thread' or 'inline'")
         if not 0 <= self.port <= 65535:
             raise ConfigError("port must be 0..65535")
         object.__setattr__(

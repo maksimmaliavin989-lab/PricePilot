@@ -143,6 +143,14 @@ def error_code(value: str) -> str:
     return value
 
 
+def document_file_name(value: str) -> str:
+    """Original file name without any path component (never used as a filesystem path)."""
+    name = optional_text(value, "original_name", 255)
+    if name is None or "/" in name or "\\" in name or name in {".", ".."}:
+        raise DomainValidationError("original_name", "Имя файла без пути обязательно.")
+    return name
+
+
 @dataclass(frozen=True, slots=True)
 class SourceDocument:
     """Metadata of an immutable original. Bytes live in the file store under ``storage_key``."""
@@ -176,9 +184,7 @@ class SourceDocument:
         supported: bool,
         now: datetime,
     ) -> SourceDocument:
-        name = optional_text(original_name, "original_name", 255)
-        if name is None or "/" in name or "\\" in name:
-            raise DomainValidationError("original_name", "Имя файла без пути обязательно.")
+        name = document_file_name(original_name)
         mime = optional_text(detected_mime, "detected_mime", 127)
         if mime is None:
             raise DomainValidationError("detected_mime", "MIME-тип обязателен.")
