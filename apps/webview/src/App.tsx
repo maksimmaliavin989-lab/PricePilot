@@ -211,7 +211,7 @@ export function App() {
           </>
         ) : null}
         {client && view === "suppliers" && active ? (
-          <SupplierPanel key={active.id} client={client} workspace={active} />
+          <SupplierPanel key={active.id} client={client} workspace={active} onGo={go} />
         ) : null}
         {client && view === "documents" && active ? (
           <DocumentsView

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CostPolicy } from "../api/client";
 import { formatDecimal } from "./format";
-import { draftFromTerms, formatMoney, rankKey, termsFromDraft } from "./costs";
+import { isPrimaryRow, draftFromTerms, formatMoney, rankKey, termsFromDraft } from "./costs";
 
 const policy: CostPolicy = {
   name: "Базовая",
@@ -81,6 +81,15 @@ describe("cost helpers", () => {
       order_multiple: null,
       price_includes_vat: null,
     });
+  });
+
+  it("shows required and unknown components first, optional ones on demand", () => {
+    const [delivery, vat] = draftFromTerms(policy, null, "RUB").rows;
+    if (!delivery || !vat) throw new Error("rows");
+    expect(isPrimaryRow(delivery, new Set())).toBe(true); // required
+    expect(isPrimaryRow(vat, new Set())).toBe(false); // optional, not stated
+    expect(isPrimaryRow(vat, new Set(["vat"]))).toBe(true); // unknown in the last result
+    expect(isPrimaryRow({ ...vat, status: "not_applicable" }, new Set())).toBe(true);
   });
 
   it("ranks complete results first, unknown totals last", () => {

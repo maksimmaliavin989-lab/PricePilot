@@ -4,11 +4,20 @@ import { lineState } from "../review/lines";
 /** The main path of the app: price list → reviewed lines → matched catalog → comparison. */
 export type StepId = "import" | "review" | "match" | "compare";
 
+/** "todo" — не начато, "active" — в процессе, "done" — готово. */
+export type StepState = "todo" | "active" | "done";
+
+export const STEP_STATE_LABELS: Record<StepState, string> = {
+  todo: "не начато",
+  active: "в процессе",
+  done: "готово",
+};
+
 export interface StepView {
   id: StepId;
   title: string;
   hint: string;
-  done: boolean;
+  state: StepState;
 }
 
 export interface Progress {
@@ -21,6 +30,7 @@ export interface Progress {
   matchedLines: number;
   comparisons: number;
   calculated: number; // comparisons with at least one calculation
+  complete: number; // comparisons where every calculated offer is complete (nothing unknown)
 }
 
 export const EMPTY_PROGRESS: Progress = {
@@ -33,6 +43,7 @@ export const EMPTY_PROGRESS: Progress = {
   matchedLines: 0,
   comparisons: 0,
   calculated: 0,
+  complete: 0,
 };
 
 export function reviewCounts(lines: readonly Line[]): {
@@ -89,13 +100,21 @@ export function groupOffers(offers: readonly Offer[]): OfferGroup[] {
     .sort((a, b) => a.ordinal - b.ordinal);
 }
 
+function state(done: boolean, started: boolean): StepState {
+  return done ? "done" : started ? "active" : "todo";
+}
+
 export function steps(p: Progress): StepView[] {
   return [
     {
       id: "import",
       title: "Загрузить прайс",
-      hint: p.documents ? `обработано документов: ${String(p.documents)}` : "файл поставщика",
-      done: p.documents > 0,
+      hint: p.documents
+        ? `обработано документов: ${String(p.documents)}`
+        : p.processing
+          ? "обрабатывается"
+          : "файл поставщика",
+      state: state(p.documents > 0, p.processing > 0),
     },
     {
       id: "review",
@@ -103,7 +122,7 @@ export function steps(p: Progress): StepView[] {
       hint: p.lines
         ? `проверено ${String(p.checkedLines)} из ${String(p.lines)}`
         : "цены и единицы из файла",
-      done: p.lines > 0 && p.checkedLines === p.lines,
+      state: state(p.lines > 0 && p.checkedLines === p.lines, p.checkedLines > 0),
     },
     {
       id: "match",
@@ -111,22 +130,31 @@ export function steps(p: Progress): StepView[] {
       hint: p.offerLines
         ? `сопоставлено ${String(p.matchedLines)} из ${String(p.offerLines)} строк`
         : "строки прайса → товары",
-      done: p.matchedLines > 0,
+      state: state(p.offerLines > 0 && p.matchedLines === p.offerLines, p.matchedLines > 0),
     },
     {
       id: "compare",
       title: "Сравнить предложения",
-      hint: p.comparisons
-        ? `сравнений: ${String(p.comparisons)}, рассчитано: ${String(p.calculated)}`
-        : "полная стоимость",
-      done: p.calculated > 0,
+      hint: !p.comparisons
+        ? "полная стоимость"
+        : !p.calculated
+          ? `сравнений: ${String(p.comparisons)}, не рассчитано`
+          : p.complete
+            ? `рассчитано полностью: ${String(p.complete)}`
+            : "есть неизвестные условия",
+      state: state(p.complete > 0, p.comparisons > 0),
     },
   ];
 }
 
-/** The first step that is not done: where the user should go next. */
+/** Where the user should go next: the first step that is not done. Matching is the one
+ * exception: it never has to cover every line of a price list, so once something is matched
+ * the user may move on to the comparison (the step stays "in progress"). */
 export function currentStep(p: Progress): StepId {
-  return steps(p).find((s) => !s.done)?.id ?? "compare";
+  const blocking = steps(p).find(
+    (s) => s.state === "todo" || (s.state === "active" && s.id !== "match"),
+  );
+  return blocking?.id ?? "compare";
 }
 
 const READY = new Set(["completed", "review_required"]);
@@ -158,5 +186,9 @@ export async function loadProgress(
     matchedLines: groups.filter((g) => g.matched).length,
     comparisons: comparisons.items.length,
     calculated: details.filter((c) => c.items.some((i) => i.offers.some((o) => o.snapshot))).length,
+    complete: details.filter((c) => {
+      const snaps = c.items.flatMap((i) => i.offers.map((o) => o.snapshot));
+      return snaps.length > 0 && snaps.every((snap) => snap?.complete === true);
+    }).length,
   };
 }

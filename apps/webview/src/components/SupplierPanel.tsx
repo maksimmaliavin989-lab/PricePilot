@@ -2,10 +2,13 @@ import { useCallback, useEffect, useState, type SyntheticEvent } from "react";
 
 import type { ApiClient, Supplier, Workspace } from "../api/client";
 import { ErrorNotice } from "./ErrorNotice";
+import { NextStep } from "./NextStep";
+import type { StepId } from "../journey/progress";
 
 interface Props {
   client: ApiClient;
   workspace: Workspace;
+  onGo?: ((step: StepId) => void) | undefined;
 }
 
 interface SupplierForm {
@@ -102,7 +105,7 @@ function SupplierFields({
   );
 }
 
-export function SupplierPanel({ client, workspace }: Props) {
+export function SupplierPanel({ client, workspace, onGo }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -193,6 +196,18 @@ export function SupplierPanel({ client, workspace }: Props) {
   return (
     <section aria-labelledby="sup-title">
       <h2 id="sup-title">Поставщики · {workspace.name}</h2>
+      <NextStep
+        title={
+          suppliers.length
+            ? "загрузите прайс поставщика"
+            : "добавьте поставщика или сразу загрузите прайс"
+        }
+        action={{ label: "Загрузить прайс", onClick: () => onGo?.("import") }}
+      >
+        {suppliers.length
+          ? "Поставщик выбирается при загрузке файла."
+          : "Поставщик нужен, чтобы различать предложения в сравнении; его можно указать и при загрузке файла."}
+      </NextStep>
       <ErrorNotice
         error={error}
         onDismiss={() => {

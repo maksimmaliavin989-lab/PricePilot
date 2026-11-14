@@ -18,6 +18,7 @@ import {
   ORIGIN_LABELS,
   UNKNOWN,
   draftFromTerms,
+  isPrimaryRow,
   formatMoney,
   rankKey,
   termsFromDraft,
@@ -45,6 +46,7 @@ function today(): string {
 
 export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
   const [matchedProducts, setMatchedProducts] = useState<number | null>(null);
+  const [offerCount, setOfferCount] = useState<number | null>(null);
   const [list, setList] = useState<ComparisonSummary[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -66,6 +68,7 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
         const items = [...page.items].reverse();
         setList(items);
         setMatchedProducts(new Set(offers.map((o) => o.matched_product_id).filter(Boolean)).size);
+        setOfferCount(offers.length);
         setOpenId((current) => current ?? items[0]?.id ?? null);
       } catch (e: unknown) {
         if (!state.cancelled) setError(e);
@@ -102,7 +105,15 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
           setError(null);
         }}
       />
-      {matchedProducts === 0 ? (
+      {offerCount === 0 ? (
+        <NextStep
+          title="начните с загрузки прайса поставщика"
+          action={{ label: "К документам", onClick: () => onGo?.("import") }}
+        >
+          Сравнивать пока нечего. Путь: загрузить прайс → проверить строки → сопоставить с каталогом
+          → сравнить.
+        </NextStep>
+      ) : matchedProducts === 0 ? (
         <NextStep
           title="сначала сопоставьте строки прайса с товарами каталога"
           action={{ label: "Перейти к сопоставлению", onClick: () => onGo?.("match") }}
@@ -130,53 +141,55 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
         </button>
       </div>
       {showSettings ? <CostSettings client={client} workspace={workspace} /> : null}
-      <form
-        className="card form-grid"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void create();
-        }}
-      >
-        <label className="wide">
-          Новое сравнение
-          <input
-            value={name}
-            required
-            maxLength={200}
-            placeholder="Например: цемент на объект"
-            onChange={(e) => {
-              setName(e.target.value);
-            }}
-          />
-        </label>
-        <label>
-          Валюта расчёта
-          <input
-            value={currency}
-            required
-            maxLength={3}
-            onChange={(e) => {
-              setCurrency(e.target.value);
-            }}
-          />
-        </label>
-        <label>
-          Дата курсов и ставок
-          <input
-            type="date"
-            value={asOf}
-            required
-            onChange={(e) => {
-              setAsOf(e.target.value);
-            }}
-          />
-        </label>
-        <div className="actions">
-          <button type="submit" className="primary" disabled={!name.trim()}>
-            Создать
-          </button>
-        </div>
-      </form>
+      {matchedProducts || list.length ? (
+        <form
+          className="card form-grid"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void create();
+          }}
+        >
+          <label className="wide">
+            Новое сравнение
+            <input
+              value={name}
+              required
+              maxLength={200}
+              placeholder="Например: цемент на объект"
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
+            />
+          </label>
+          <label>
+            Валюта расчёта
+            <input
+              value={currency}
+              required
+              maxLength={3}
+              onChange={(e) => {
+                setCurrency(e.target.value);
+              }}
+            />
+          </label>
+          <label>
+            Дата курсов и ставок
+            <input
+              type="date"
+              value={asOf}
+              required
+              onChange={(e) => {
+                setAsOf(e.target.value);
+              }}
+            />
+          </label>
+          <div className="actions">
+            <button type="submit" className="primary" disabled={!name.trim()}>
+              Создать
+            </button>
+          </div>
+        </form>
+      ) : null}
       {list.length ? (
         <div className="toolbar" role="list" aria-label="Сравнения">
           {list.map((c) => (
@@ -193,9 +206,7 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
             </button>
           ))}
         </div>
-      ) : (
-        <p className="muted">Сравнений пока нет.</p>
-      )}
+      ) : null}
       {openId ? (
         <ComparisonDetail
           key={openId}
@@ -728,7 +739,7 @@ export function Breakdown({ snapshot }: { snapshot: CostSnapshot }) {
                 ) : null}
               </td>
               <td>
-                {c.origin ? (ORIGIN_LABELS[c.origin] ?? c.origin) : ""}
+                {c.origin && c.amount !== null ? (ORIGIN_LABELS[c.origin] ?? c.origin) : ""}
                 {c.source ? <div className="meta">{c.source}</div> : null}
               </td>
             </tr>
@@ -751,9 +762,9 @@ export function Breakdown({ snapshot }: { snapshot: CostSnapshot }) {
 }
 
 const STATUS_OPTIONS: { value: RowStatus; label: string }[] = [
-  { value: "unset", label: "не указано" },
-  { value: "known", label: "значение" },
-  { value: "unknown", label: "неизвестно" },
+  { value: "unset", label: "— выберите —" },
+  { value: "known", label: "указать сумму или %" },
+  { value: "unknown", label: "пока неизвестно" },
   { value: "not_applicable", label: "не применяется" },
 ];
 
@@ -780,6 +791,76 @@ function TermsEditor({
     }));
   }
 
+  const unknown = new Set(co.snapshot?.unknown_components ?? []);
+  const primary = draft.rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => isPrimaryRow(row, unknown));
+  const extra = draft.rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => !isPrimaryRow(row, unknown));
+
+  function renderRow({ row, index }: { row: TermsDraft["rows"][number]; index: number }) {
+    const taxLike = row.type.category === "tax" || row.type.category === "duty";
+    return (
+      <div key={row.type.code} className="terms-row">
+        <strong>{row.type.label}</strong>
+        {row.type.required ? <span className="meta"> · нужен для итога</span> : null}
+        {unknown.has(row.type.code) ? <span className="meta"> · сейчас неизвестно</span> : null}
+        <div className="inline">
+          <select
+            aria-label={`${row.type.label}: статус`}
+            value={row.status}
+            onChange={(e) => {
+              update(index, { status: e.target.value as RowStatus });
+            }}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          {row.status === "known" ? (
+            <>
+              <input
+                aria-label={`${row.type.label}: значение`}
+                value={row.value}
+                inputMode="decimal"
+                size={8}
+                placeholder={row.type.basis === "percent" ? "%" : "сумма"}
+                onChange={(e) => {
+                  update(index, { value: e.target.value });
+                }}
+              />
+              {row.type.basis === "percent" ? (
+                <span>%</span>
+              ) : (
+                <input
+                  aria-label={`${row.type.label}: валюта`}
+                  value={row.currency}
+                  maxLength={3}
+                  size={4}
+                  onChange={(e) => {
+                    update(index, { currency: e.target.value });
+                  }}
+                />
+              )}
+              <input
+                aria-label={`${row.type.label}: источник`}
+                value={row.source}
+                maxLength={500}
+                placeholder={taxLike ? "обязательно: откуда ставка" : "откуда (необязательно)"}
+                onChange={(e) => {
+                  update(index, { source: e.target.value });
+                }}
+              />
+            </>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form
       className="field-form"
@@ -795,122 +876,57 @@ function TermsEditor({
         void onSave(terms);
       }}
     >
-      <table className="wide">
-        <thead>
-          <tr>
-            <th scope="col">Компонент</th>
-            <th scope="col">Статус</th>
-            <th scope="col">Значение</th>
-            <th scope="col">Валюта</th>
-            <th scope="col">Источник</th>
-          </tr>
-        </thead>
-        <tbody>
-          {draft.rows.map((row, index) => (
-            <tr key={row.type.code}>
-              <td>
-                {row.type.label}
-                {row.type.required ? <span className="meta"> · обязателен</span> : null}
-                <div className="meta">{row.type.basis === "percent" ? "%" : "сумма"}</div>
-              </td>
-              <td>
-                <select
-                  aria-label={`${row.type.label}: статус`}
-                  value={row.status}
-                  onChange={(e) => {
-                    update(index, { status: e.target.value as RowStatus });
-                  }}
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                <input
-                  aria-label={`${row.type.label}: значение`}
-                  value={row.value}
-                  inputMode="decimal"
-                  size={8}
-                  disabled={row.status !== "known"}
-                  onChange={(e) => {
-                    update(index, { value: e.target.value });
-                  }}
-                />
-              </td>
-              <td>
-                {row.type.basis === "percent" ? (
-                  "—"
-                ) : (
-                  <input
-                    aria-label={`${row.type.label}: валюта`}
-                    value={row.currency}
-                    maxLength={3}
-                    size={4}
-                    disabled={row.status !== "known"}
-                    onChange={(e) => {
-                      update(index, { currency: e.target.value });
-                    }}
-                  />
-                )}
-              </td>
-              <td>
-                <input
-                  aria-label={`${row.type.label}: источник`}
-                  value={row.source}
-                  maxLength={500}
-                  placeholder={
-                    row.type.category === "tax" || row.type.category === "duty"
-                      ? "обязательно: откуда ставка"
-                      : "договор, счёт…"
-                  }
-                  onChange={(e) => {
-                    update(index, { source: e.target.value });
-                  }}
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <label>
-        Минимальный заказ (в единицах цены)
-        <input
-          value={draft.minimumOrder}
-          inputMode="decimal"
-          onChange={(e) => {
-            setDraft({ ...draft, minimumOrder: e.target.value });
-          }}
-        />
-      </label>
-      <label>
-        Кратность заказа
-        <input
-          value={draft.orderMultiple}
-          inputMode="decimal"
-          onChange={(e) => {
-            setDraft({ ...draft, orderMultiple: e.target.value });
-          }}
-        />
-      </label>
-      <label>
-        Цена включает НДС
-        <select
-          value={draft.priceIncludesVat}
-          onChange={(e) => {
-            setDraft({
-              ...draft,
-              priceIncludesVat: e.target.value as TermsDraft["priceIncludesVat"],
-            });
-          }}
-        >
-          <option value="unknown">неизвестно</option>
-          <option value="yes">да</option>
-          <option value="no">нет</option>
-        </select>
-      </label>
+      <div className="wide">
+        <h4>Что нужно для итога</h4>
+        {primary.length ? (
+          primary.map(renderRow)
+        ) : (
+          <p className="meta">Обязательных условий нет.</p>
+        )}
+        <label>
+          Цена в прайсе включает НДС?{" "}
+          <select
+            value={draft.priceIncludesVat}
+            onChange={(e) => {
+              setDraft({
+                ...draft,
+                priceIncludesVat: e.target.value as TermsDraft["priceIncludesVat"],
+              });
+            }}
+          >
+            <option value="unknown">не знаю</option>
+            <option value="yes">да</option>
+            <option value="no">нет</option>
+          </select>
+        </label>
+      </div>
+      <details className="terms-extra wide">
+        <summary>
+          Дополнительные условия ({extra.map(({ row }) => row.type.label.toLowerCase()).join(", ")}
+          {extra.length ? ", " : ""}минимальный заказ, кратность)
+        </summary>
+        {extra.map(renderRow)}
+        <label>
+          Минимальный заказ (в единицах цены)
+          <input
+            value={draft.minimumOrder}
+            inputMode="decimal"
+            onChange={(e) => {
+              setDraft({ ...draft, minimumOrder: e.target.value });
+            }}
+          />
+        </label>
+        <label>
+          Кратность заказа
+          <input
+            value={draft.orderMultiple}
+            inputMode="decimal"
+            onChange={(e) => {
+              setDraft({ ...draft, orderMultiple: e.target.value });
+            }}
+          />
+        </label>
+      </details>
       {problem ? (
         <div className="notice notice-error" role="alert">
           {problem}

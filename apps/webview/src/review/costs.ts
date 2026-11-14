@@ -106,6 +106,13 @@ function decimal(value: string): string {
   return value.trim().replace(",", ".");
 }
 
+/** Shown first in the terms form: what the total needs (required components, components
+ * that are unknown in the last calculation) and what the user has already stated. The rest
+ * (optional discounts, insurance, taxes…) opens on demand. */
+export function isPrimaryRow(row: TermsRow, unknownCodes: ReadonlySet<string>): boolean {
+  return row.type.required || row.status !== "unset" || unknownCodes.has(row.type.code);
+}
+
 /** Builds the request body; returns an error message instead when the draft is invalid. */
 export function termsFromDraft(draft: TermsDraft): OfferTerms | string {
   const components: CostComponentIn[] = [];

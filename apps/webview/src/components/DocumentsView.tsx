@@ -11,6 +11,7 @@ import { DocumentReview } from "./DocumentReview";
 import { ErrorNotice } from "./ErrorNotice";
 import { ImportPanel } from "./ImportPanel";
 import { NextStep } from "./NextStep";
+import { reviewCounts } from "../journey/progress";
 import type { StepId } from "../journey/progress";
 
 interface Props {
@@ -25,7 +26,11 @@ const POLL_MS = 1000;
 async function loadAll(
   client: ApiClient,
   workspaceId: string,
-): Promise<{ documents: SourceDocument[]; runs: Record<string, ProcessingRun> }> {
+): Promise<{
+  documents: SourceDocument[];
+  runs: Record<string, ProcessingRun>;
+  review: Record<string, ReviewState>;
+}> {
   const documents: SourceDocument[] = [];
   let cursor: string | undefined;
   do {
@@ -42,7 +47,28 @@ async function loadAll(
         runs[d.id] = await client.getRun(d.latest_run_id ?? "");
       }),
   );
-  return { documents, runs };
+  // Review state per processed document, from its lines (the same rule as the review screen).
+  const review: Record<string, ReviewState> = {};
+  await Promise.all(
+    documents
+      .filter((d) => {
+        const run = runs[d.id];
+        return run && !ACTIVE_RUN.has(run.status) && run.counts.lines > 0;
+      })
+      .slice(0, 20)
+      .map(async (d) => {
+        const counts = reviewCounts(await client.listAllLines(d.id));
+        review[d.id] = { ...counts, total: counts.checked + counts.attention + counts.pending };
+      }),
+  );
+  return { documents, runs, review };
+}
+
+interface ReviewState {
+  checked: number;
+  attention: number;
+  pending: number;
+  total: number;
 }
 
 function stageText(doc: SourceDocument, run: ProcessingRun | undefined): string {
@@ -58,6 +84,7 @@ function stageText(doc: SourceDocument, run: ProcessingRun | undefined): string 
 export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
   const [documents, setDocuments] = useState<SourceDocument[]>([]);
   const [runs, setRuns] = useState<Record<string, ProcessingRun>>({});
+  const [review, setReview] = useState<Record<string, ReviewState>>({});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -78,6 +105,7 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
         if (state.cancelled) return;
         setDocuments(loaded.documents);
         setRuns(loaded.runs);
+        setReview(loaded.review);
         setSuppliers(supplierPage.items);
       } catch (e: unknown) {
         if (!state.cancelled) setError(e);
@@ -152,17 +180,38 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
         if (anyActive && ready.length === 0) {
           return <NextStep title="дождитесь окончания обработки">Статус обновляется сам.</NextStep>;
         }
-        const first = ready[0];
-        if (!first) {
+        const first =
+          ready.find((d) => {
+            const r = review[d.id];
+            return !r || r.checked < r.total;
+          }) ?? null;
+        const reviewed = ready[0];
+        if (!reviewed) {
           return (
             <NextStep title="загрузите другой файл">
               Ни один документ не дал строк прайса — причина указана в столбце «Этап».
             </NextStep>
           );
         }
+        if (!first) {
+          return (
+            <NextStep
+              title="сопоставьте строки с товарами каталога"
+              action={{
+                label: "Перейти к сопоставлению",
+                onClick: () => onGo?.("match", reviewed.id),
+              }}
+            >
+              Все строки обработанных прайсов проверены. Новый прайс можно загрузить ниже.
+            </NextStep>
+          );
+        }
+        const state = review[first.id];
         return (
           <NextStep
-            title={`проверьте строки «${first.original_name}»`}
+            title={`проверьте строки «${first.original_name}»${
+              state ? ` (проверено ${String(state.checked)} из ${String(state.total)})` : ""
+            }`}
             action={{
               label: "Проверить строки",
               onClick: () => {
@@ -221,9 +270,13 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
                   <td aria-live="polite">{stageText(doc, run)}</td>
                   <td>
                     {run ? String(run.counts.lines) : "—"}
-                    {run?.counts.lines_review_required ? (
+                    {review[doc.id] ? (
                       <div className="meta">
-                        на проверку: {String(run.counts.lines_review_required)}
+                        проверено {String(review[doc.id]?.checked ?? 0)} из{" "}
+                        {String(review[doc.id]?.total ?? 0)}
+                        {review[doc.id]?.attention
+                          ? `, с замечаниями ${String(review[doc.id]?.attention ?? 0)}`
+                          : ""}
                       </div>
                     ) : null}
                   </td>
@@ -236,7 +289,9 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
                           setOpenId(doc.id);
                         }}
                       >
-                        Проверить
+                        {review[doc.id] && review[doc.id]?.checked === review[doc.id]?.total
+                          ? "Открыть"
+                          : "Проверить"}
                       </button>
                     ) : null}
                     {run && ACTIVE_RUN.has(run.status) ? (

@@ -604,3 +604,27 @@ nav.journey {
   display: block;
   margin-bottom: 8px;
 }
+
+.journey-active .journey-index {
+  border: 2px dashed var(--accent);
+}
+
+.journey-todo .journey-index {
+  opacity: 0.7;
+}
+
+.journey-state {
+  font-weight: 600;
+}
+
+.terms-extra summary {
+  cursor: pointer;
+  margin: 8px 0;
+}
+
+.terms-row {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
