@@ -99,6 +99,7 @@ describe("lineState", () => {
     expect(lineState(line)).toBe("attention");
     const decided = {
       ...line,
+      issues: line.issues.map((i) => ({ ...i, resolved: true })),
       fields: [
         { ...name, review_status: "accepted" as const },
         { ...p1, review_status: "accepted" as const },

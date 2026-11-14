@@ -17,14 +17,19 @@ function priceFields(line: Line): Field[] {
   return line.fields.filter((f) => isPriceKey(f.field_key));
 }
 
+/** Remarks the server still considers open (derived from the current fields). */
+export function openIssues(line: Line): Line["issues"] {
+  return line.issues.filter((i) => !i.resolved);
+}
+
 export function lineState(line: Line): LineState {
+  if (openIssues(line).length > 0) return "attention";
   const decided = line.fields.every((f) => f.review_status !== "unreviewed");
   const prices = priceFields(line);
   const hasUsablePrice = prices.some(
     (f) => f.review_status === "accepted" || f.review_status === "corrected",
   );
   if (decided && (prices.length === 0 || hasUsablePrice)) return "checked";
-  if (line.review_reasons.length > 0) return "attention";
   return decided ? "attention" : "pending";
 }
 

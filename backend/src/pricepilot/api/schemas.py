@@ -26,6 +26,7 @@ from pricepilot.domain.extraction import (
     ReviewStatus,
     ValueType,
 )
+from pricepilot.domain.line_issues import IssueAction, line_issues
 from pricepilot.domain.suppliers import Supplier
 from pricepilot.domain.workspaces import Workspace
 
@@ -391,6 +392,17 @@ class FieldOut(BaseModel):
         )
 
 
+class LineIssueOut(BaseModel):
+    code: str = Field(description="Причина из распознавания (история, не меняется)")
+    field_key: str = Field(description="Поле, к которому относится замечание")
+    field_ids: list[UUID] = Field(
+        description="Существующие поля; пусто — поля нет, его нужно добавить"
+    )
+    action: IssueAction
+    hint: str = Field(description="Что сделать")
+    resolved: bool = Field(description="Снято по текущему состоянию полей")
+
+
 class LineOut(BaseModel):
     id: UUID
     run_id: UUID
@@ -404,10 +416,15 @@ class LineOut(BaseModel):
         "ASSUMED_CURRENCY, COLUMNS_INFERRED, UNIT_CORRECTED, UNIT_AMBIGUOUS"
     )
     fields: list[FieldOut]
+    issues: list[LineIssueOut] = Field(
+        description="Замечания, связанные с полями: что сделать и снято ли оно сейчас"
+    )
+    open_issues: int = Field(description="Сколько замечаний ещё не снято")
 
     @staticmethod
     def of(item: LineWithFields) -> LineOut:
         line = item.line
+        issues = line_issues(line.review_reasons, item.fields)
         return LineOut(
             id=line.id,
             run_id=line.run_id,
@@ -417,6 +434,18 @@ class LineOut(BaseModel):
             status=line.status,
             review_reasons=list(line.review_reasons),
             fields=[FieldOut.of(f) for f in item.fields],
+            issues=[
+                LineIssueOut(
+                    code=i.code,
+                    field_key=i.field_key,
+                    field_ids=list(i.field_ids),
+                    action=i.action,
+                    hint=i.hint,
+                    resolved=i.resolved,
+                )
+                for i in issues
+            ],
+            open_issues=sum(1 for i in issues if not i.resolved),
         )
 
 
@@ -434,6 +463,14 @@ class FieldCorrectionIn(_Strict):
     )
     reason: Annotated[str, Field(max_length=1000)] | None = None
     expected_revision: Annotated[int, Field(ge=1)]
+
+
+class FieldAddIn(_Strict):
+    field_key: Literal["unit", "price"]
+    value: dict[str, Any] = Field(
+        description="unit → {value: код единицы}; price → {amount, currency}. Числа строками."
+    )
+    reason: Annotated[str, Field(max_length=1000)] | None = None
 
 
 class FieldDecisionIn(_Strict):

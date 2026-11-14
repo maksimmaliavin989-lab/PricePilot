@@ -6,14 +6,21 @@ from typing import Any
 from uuid import UUID
 
 from pricepilot.application.errors import NotFoundError, RevisionConflictError
-from pricepilot.application.ports import Clock, CorrelationProvider, UnitOfWorkFactory
+from pricepilot.application.ports import (
+    Clock,
+    CorrelationProvider,
+    LineWithFields,
+    UnitOfWorkFactory,
+)
 from pricepilot.domain.audit import LOCAL_ACTOR, AuditEvent
-from pricepilot.domain.common import utc_now
+from pricepilot.domain.common import DomainValidationError, utc_now
 from pricepilot.domain.extraction import (
     ExtractedField,
     FieldRevision,
+    Provenance,
     ReviewDecision,
     StaleRevisionError,
+    ValueType,
 )
 
 
@@ -33,6 +40,69 @@ class ReviewService:
         self._clock = clock
         self._correlation = correlation
         self._actor = actor
+
+    def add_field(
+        self, line_id: UUID, *, key: str, value: Any, reason: str | None
+    ) -> ExtractedField:
+        """Add a field the source line does not have (unit or price), entered by the user."""
+        value_types = {"unit": ValueType.UNIT, "price": ValueType.MONEY}
+        if key not in value_types:
+            raise DomainValidationError("field_key", "Добавить можно только единицу или цену.")
+        with self._uow() as uow:
+            item = uow.extraction.get_line(line_id)
+            context = uow.extraction.line_context(line_id)
+            if item is None or context is None:
+                raise NotFoundError("extracted_line")
+            document_id, workspace_id, pipeline = context
+            existing = {f.field_key for f in item.fields}
+            if key in existing or (
+                key == "price" and any(k.startswith("price_") for k in existing)
+            ):
+                raise DomainValidationError(
+                    "field_key", "Поле уже есть в строке: исправьте или подтвердите его."
+                )
+            now = self._clock()
+            field, revision = ExtractedField.user_entered(
+                line_id=line_id,
+                key=key,
+                value_type=value_types[key],
+                value=value,
+                provenance=Provenance(
+                    source_document_id=document_id,
+                    location=item.line.location,
+                    extractor="user",
+                    extractor_version="1",
+                    pipeline_version=pipeline,
+                    method="user",
+                ),
+                reason=reason,
+                actor=self._actor,
+                now=now,
+            )
+            uow.extraction.add_field(field)
+            uow.extraction.add_revision(revision)
+            uow.audit.add(
+                AuditEvent.record(
+                    workspace_id=workspace_id,
+                    actor_id=self._actor,
+                    entity_type="extracted_field",
+                    entity_id=field.id,
+                    action="add",
+                    before=None,
+                    after={"key": key, "value": field.normalized_value},
+                    now=now,
+                    correlation_id=self._correlation(),
+                )
+            )
+            uow.commit()
+        return field
+
+    def line(self, line_id: UUID) -> LineWithFields:
+        with self._uow() as uow:
+            item = uow.extraction.get_line(line_id)
+        if item is None:
+            raise NotFoundError("extracted_line")
+        return item
 
     def get(self, field_id: UUID) -> ExtractedField:
         with self._uow() as uow:

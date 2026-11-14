@@ -358,6 +358,53 @@ class SqlExtractionRepository:
             next_ordinal=lines[-1].ordinal if has_more and lines else None,
         )
 
+    def get_line(self, line_id: UUID) -> LineWithFields | None:
+        row = self._c.execute(
+            select(extracted_lines).where(extracted_lines.c.id == line_id)
+        ).first()
+        if row is None:
+            return None
+        fields = [
+            _field(r)
+            for r in self._c.execute(
+                select(extracted_fields)
+                .where(extracted_fields.c.line_id == line_id)
+                .order_by(extracted_fields.c.field_key)
+            )
+        ]
+        return LineWithFields(_line(row), fields)
+
+    def line_context(self, line_id: UUID) -> tuple[UUID, UUID, str] | None:
+        """(document id, workspace id, pipeline version) of a line."""
+        row = self._c.execute(
+            select(
+                source_documents.c.id,
+                source_documents.c.workspace_id,
+                processing_runs.c.pipeline_version,
+            )
+            .select_from(extracted_lines.join(processing_runs).join(source_documents))
+            .where(extracted_lines.c.id == line_id)
+        ).first()
+        return (row[0], row[1], row[2]) if row else None
+
+    def add_field(self, f: ExtractedField) -> None:
+        self._c.execute(
+            extracted_fields.insert().values(
+                id=f.id,
+                line_id=f.line_id,
+                field_key=f.field_key,
+                value_type=f.value_type.value,
+                raw_value=f.raw_value,
+                normalized_value_json=f.normalized_value,
+                confidence=f.confidence,
+                provenance_json=f.provenance,
+                review_status=f.review_status.value,
+                revision=f.revision,
+                reviewed_by=f.reviewed_by,
+                reviewed_at=f.reviewed_at,
+            )
+        )
+
     def get_field(self, field_id: UUID) -> ExtractedField | None:
         row = self._c.execute(
             select(extracted_fields).where(extracted_fields.c.id == field_id)

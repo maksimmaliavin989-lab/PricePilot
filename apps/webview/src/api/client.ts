@@ -13,6 +13,7 @@ export type SourceDocument = Schemas["DocumentOut"];
 export type ImportResult = Schemas["ImportOut"];
 export type ProcessingRun = Schemas["ProcessingRunOut"];
 export type Line = Schemas["LineOut"];
+export type LineIssue = Schemas["LineIssueOut"];
 export type Field = Schemas["FieldOut"];
 export type FieldRevision = Schemas["FieldRevisionOut"];
 export type SourceWindow = Schemas["SourceWindowOut"];
@@ -316,6 +317,24 @@ export class ApiClient {
     body: { decision: "accept" | "reject"; reason: string | null; expected_revision: number },
   ): Promise<Field> {
     return this.request("POST", `/extracted-fields/${encodeURIComponent(id)}/decision`, { body });
+  }
+
+  getLine(id: string): Promise<Line> {
+    return this.request("GET", `/extracted-lines/${encodeURIComponent(id)}`);
+  }
+
+  /** A field the source line does not have (missing unit or price), entered by the user. */
+  addLineField(
+    lineId: string,
+    body: {
+      field_key: "unit" | "price";
+      value: Record<string, string>;
+      reason: string | null;
+    },
+  ): Promise<Line> {
+    return this.request("POST", `/extracted-lines/${encodeURIComponent(lineId)}/fields`, {
+      body,
+    });
   }
 
   fieldRevisions(id: string): Promise<FieldRevision[]> {

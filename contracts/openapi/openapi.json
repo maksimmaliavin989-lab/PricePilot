@@ -3049,6 +3049,263 @@
         }
       }
     },
+    "/api/v1/extracted-lines/{line_id}": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Строка с полями и замечаниями",
+        "operationId": "get_line_api_v1_extracted_lines__line_id__get",
+        "parameters": [
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Line Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/extracted-lines/{line_id}/fields": {
+      "post": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Добавить недостающее поле (единицу или цену)",
+        "description": "Для строк, где в файле нет единицы или цены. raw_value остаётся пустым, происхождение — method=user; создаётся ревизия. Если поле уже есть — 422.",
+        "operationId": "add_field_api_v1_extracted_lines__line_id__fields_post",
+        "parameters": [
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Line Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FieldAddIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineOut"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Precondition Required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/v1/products": {
       "get": {
         "tags": [
@@ -7834,6 +8091,43 @@
         ],
         "title": "FeatureOut"
       },
+      "FieldAddIn": {
+        "properties": {
+          "field_key": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "price"
+            ],
+            "title": "Field Key"
+          },
+          "value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Value",
+            "description": "unit → {value: код единицы}; price → {amount, currency}. Числа строками."
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field_key",
+          "value"
+        ],
+        "title": "FieldAddIn"
+      },
       "FieldCorrectionIn": {
         "properties": {
           "value": {
@@ -8395,6 +8689,63 @@
         ],
         "title": "InputStatus"
       },
+      "IssueAction": {
+        "type": "string",
+        "enum": [
+          "add_value",
+          "fix_value",
+          "confirm_or_fix",
+          "choose_price",
+          "confirm"
+        ],
+        "title": "IssueAction"
+      },
+      "LineIssueOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Причина из распознавания (история, не меняется)"
+          },
+          "field_key": {
+            "type": "string",
+            "title": "Field Key",
+            "description": "Поле, к которому относится замечание"
+          },
+          "field_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Field Ids",
+            "description": "Существующие поля; пусто — поля нет, его нужно добавить"
+          },
+          "action": {
+            "$ref": "#/components/schemas/IssueAction"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint",
+            "description": "Что сделать"
+          },
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved",
+            "description": "Снято по текущему состоянию полей"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "field_key",
+          "field_ids",
+          "action",
+          "hint",
+          "resolved"
+        ],
+        "title": "LineIssueOut"
+      },
       "LineOut": {
         "properties": {
           "id": {
@@ -8435,6 +8786,19 @@
             },
             "type": "array",
             "title": "Fields"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/LineIssueOut"
+            },
+            "type": "array",
+            "title": "Issues",
+            "description": "Замечания, связанные с полями: что сделать и снято ли оно сейчас"
+          },
+          "open_issues": {
+            "type": "integer",
+            "title": "Open Issues",
+            "description": "Сколько замечаний ещё не снято"
           }
         },
         "type": "object",
@@ -8446,7 +8810,9 @@
           "source",
           "status",
           "review_reasons",
-          "fields"
+          "fields",
+          "issues",
+          "open_issues"
         ],
         "title": "LineOut"
       },

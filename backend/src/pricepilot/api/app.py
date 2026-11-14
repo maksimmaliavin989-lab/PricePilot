@@ -160,6 +160,7 @@ def create_app(settings: Settings, on_ready: Callable[[], None] | None = None) -
     app.include_router(documents.router, prefix=API_PREFIX)
     app.include_router(runs.router, prefix=API_PREFIX)
     app.include_router(fields.router, prefix=API_PREFIX)
+    app.include_router(fields.lines_router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
     app.include_router(offers.router, prefix=API_PREFIX)
     app.include_router(costs.router, prefix=API_PREFIX)

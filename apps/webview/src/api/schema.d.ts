@@ -282,6 +282,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/extracted-lines/{line_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Строка с полями и замечаниями */
+        get: operations["get_line_api_v1_extracted_lines__line_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/extracted-lines/{line_id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Добавить недостающее поле (единицу или цену)
+         * @description Для строк, где в файле нет единицы или цены. raw_value остаётся пустым, происхождение — method=user; создаётся ревизия. Если поле уже есть — 422.
+         */
+        post: operations["add_field_api_v1_extracted_lines__line_id__fields_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products": {
         parameters: {
             query?: never;
@@ -1147,6 +1184,23 @@ export interface components {
             /** Blocking */
             blocking: boolean;
         };
+        /** FieldAddIn */
+        FieldAddIn: {
+            /**
+             * Field Key
+             * @enum {string}
+             */
+            field_key: "unit" | "price";
+            /**
+             * Value
+             * @description unit → {value: код единицы}; price → {amount, currency}. Числа строками.
+             */
+            value: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason?: string | null;
+        };
         /** FieldCorrectionIn */
         FieldCorrectionIn: {
             /**
@@ -1346,6 +1400,40 @@ export interface components {
          * @enum {string}
          */
         InputStatus: "known" | "unknown" | "not_applicable";
+        /**
+         * IssueAction
+         * @enum {string}
+         */
+        IssueAction: "add_value" | "fix_value" | "confirm_or_fix" | "choose_price" | "confirm";
+        /** LineIssueOut */
+        LineIssueOut: {
+            /**
+             * Code
+             * @description Причина из распознавания (история, не меняется)
+             */
+            code: string;
+            /**
+             * Field Key
+             * @description Поле, к которому относится замечание
+             */
+            field_key: string;
+            /**
+             * Field Ids
+             * @description Существующие поля; пусто — поля нет, его нужно добавить
+             */
+            field_ids: string[];
+            action: components["schemas"]["IssueAction"];
+            /**
+             * Hint
+             * @description Что сделать
+             */
+            hint: string;
+            /**
+             * Resolved
+             * @description Снято по текущему состоянию полей
+             */
+            resolved: boolean;
+        };
         /** LineOut */
         LineOut: {
             /**
@@ -1371,6 +1459,16 @@ export interface components {
             review_reasons: string[];
             /** Fields */
             fields: components["schemas"]["FieldOut"][];
+            /**
+             * Issues
+             * @description Замечания, связанные с полями: что сделать и снято ли оно сейчас
+             */
+            issues: components["schemas"]["LineIssueOut"][];
+            /**
+             * Open Issues
+             * @description Сколько замечаний ещё не снято
+             */
+            open_issues: number;
         };
         /** LinePageOut */
         LinePageOut: {
@@ -4343,6 +4441,216 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FieldRevisionOut"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_line_api_v1_extracted_lines__line_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    add_field_api_v1_extracted_lines__line_id__fields_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                line_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FieldAddIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineOut"];
                 };
             };
             /** @description Bad Request */

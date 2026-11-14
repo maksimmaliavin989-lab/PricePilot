@@ -12,6 +12,7 @@ import {
   LINE_STATE_LABELS,
   fieldOf,
   lineState,
+  openIssues,
   moveSelection,
   visibleLines,
   withField,
@@ -20,6 +21,7 @@ import {
 } from "../review/lines";
 import { ErrorNotice } from "./ErrorNotice";
 import { FieldEditor } from "./FieldEditor";
+import { LineIssues } from "./LineIssues";
 import { NextStep } from "./NextStep";
 import { SourcePanel } from "./SourcePanel";
 
@@ -122,12 +124,17 @@ export function DocumentReview({
         setLines((prev) => (prev ? withField(prev, updated) : prev));
         setBulk({ done: index + 1, total: fields.length });
       }
+      for (const line of clean) replaceLine(await client.getLine(line.id));
     } catch (e: unknown) {
       setError(e);
     } finally {
       setBulk(null);
       onReviewed?.();
     }
+  }
+
+  function replaceLine(updated: Line) {
+    setLines((prev) => (prev ? prev.map((l) => (l.id === updated.id ? updated : l)) : prev));
   }
 
   function select(id: string | null) {
@@ -300,9 +307,9 @@ export function DocumentReview({
                         <td>{priceSummary(line)}</td>
                         <td>
                           <span className={`badge line-${state}`}>{LINE_STATE_LABELS[state]}</span>
-                          {(state === "checked" ? [] : line.review_reasons).map((r) => (
-                            <div key={r} className="meta">
-                              {reasonLabel(r)}
+                          {openIssues(line).map((issue) => (
+                            <div key={issue.code} className="meta">
+                              {reasonLabel(issue.code)}
                             </div>
                           ))}
                         </td>
@@ -324,20 +331,23 @@ export function DocumentReview({
                 />
                 <section aria-labelledby="fields-title" className="card">
                   <h3 id="fields-title">Поля строки {selected.source.row ?? selected.ordinal}</h3>
-                  {selected.review_reasons.length ? (
-                    <ul
-                      className="reasons"
-                      aria-label={
-                        lineState(selected) === "checked"
-                          ? "Замечания извлечения (уже разрешены проверкой)"
-                          : "Замечания извлечения"
-                      }
-                    >
-                      {selected.review_reasons.map((r) => (
-                        <li key={r}>{reasonLabel(r)}</li>
-                      ))}
-                    </ul>
-                  ) : null}
+                  <LineIssues
+                    client={client}
+                    line={selected}
+                    units={units}
+                    onSelectField={(id) => {
+                      setFieldId(id);
+                      window.requestAnimationFrame(() => {
+                        window.document
+                          .querySelector<HTMLElement>(`[data-field="${id}"]`)
+                          ?.scrollIntoView({ block: "nearest" });
+                      });
+                    }}
+                    onLineChanged={(updated) => {
+                      replaceLine(updated);
+                      onReviewed?.();
+                    }}
+                  />
                   <ul className="list" id="field-list">
                     {selected.fields.map((f) => (
                       <FieldEditor
@@ -352,6 +362,8 @@ export function DocumentReview({
                         onChanged={(updated) => {
                           onReviewed?.();
                           setLines((prev) => (prev ? withField(prev, updated) : prev));
+                          // Remarks are derived by the server from all fields of the line.
+                          client.getLine(updated.line_id).then(replaceLine, setError);
                           setFieldId(updated.id);
                         }}
                       />

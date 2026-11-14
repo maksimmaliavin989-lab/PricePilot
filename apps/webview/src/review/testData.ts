@@ -40,8 +40,16 @@ export function makeLine(
   id: string,
   ordinal: number,
   name: string,
-  options: { reasons?: string[]; fields?: Field[] } = {},
+  options: { reasons?: string[]; fields?: Field[]; resolved?: boolean } = {},
 ): Line {
+  const issues = (options.reasons ?? []).map((code) => ({
+    code,
+    field_key: code.includes("UNIT") ? "unit" : "price",
+    field_ids: [],
+    action: "confirm" as const,
+    hint: `Исправьте: ${code}`,
+    resolved: options.resolved ?? false,
+  }));
   return {
     id,
     run_id: "r1",
@@ -58,6 +66,8 @@ export function makeLine(
     },
     status: options.reasons?.length ? "review_required" : "pending",
     review_reasons: options.reasons ?? [],
+    issues,
+    open_issues: issues.filter((i) => !i.resolved).length,
     fields: options.fields ?? [
       makeField({
         field_key: "name",

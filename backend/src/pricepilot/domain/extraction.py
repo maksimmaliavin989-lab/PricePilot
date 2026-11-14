@@ -239,6 +239,45 @@ class ExtractedField:
             reviewed_at=None,
         )
 
+    @staticmethod
+    def user_entered(
+        *,
+        line_id: UUID,
+        key: str,
+        value_type: ValueType,
+        value: Any,
+        provenance: Provenance,
+        reason: str | None,
+        actor: str,
+        now: datetime,
+    ) -> tuple[ExtractedField, FieldRevision]:
+        """A field the source does not contain (e.g. a missing unit), entered by the user.
+        ``raw_value`` stays empty — nothing was read — and the history records who added it."""
+        moment = ensure_utc(now)
+        empty = ExtractedField(
+            id=new_id(),
+            line_id=line_id,
+            field_key=field_key(key),
+            value_type=value_type,
+            raw_value=None,
+            normalized_value=None,
+            confidence=None,
+            provenance=provenance.to_json(),
+            review_status=ReviewStatus.UNREVIEWED,
+            revision=0,
+            reviewed_by=None,
+            reviewed_at=None,
+        )
+        added = replace(
+            empty,
+            normalized_value=normalize_value(value_type, value),
+            review_status=ReviewStatus.CORRECTED,
+            revision=1,
+            reviewed_by=actor,
+            reviewed_at=moment,
+        )
+        return added, FieldRevision.of(empty, added, "correct", reason or "добавлено вручную", now)
+
     def _check_revision(self, expected_revision: int) -> None:
         if expected_revision != self.revision:
             raise StaleRevisionError(self.revision)

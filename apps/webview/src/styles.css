@@ -628,3 +628,17 @@ nav.journey {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
+
+/* --- Line remarks tied to fields --- */
+.issue-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.issue {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}

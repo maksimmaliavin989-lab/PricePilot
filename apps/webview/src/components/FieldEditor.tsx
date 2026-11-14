@@ -112,6 +112,7 @@ export function FieldEditor({ client, field, units, selected, onSelect, onChange
     <li
       className={selected ? "field-card field-selected" : "field-card"}
       aria-labelledby={`${id}-label`}
+      data-field={field.id}
     >
       <div className="field-head">
         <button type="button" className="link" id={`${id}-label`} onClick={onSelect}>
