@@ -36,8 +36,10 @@ describe("cost helpers", () => {
   it("shows a missing amount as unknown, never as zero", () => {
     expect(formatMoney(null)).toBe("неизвестно");
     expect(formatMoney({ amount: "12300.00", currency: "RUB" })).toBe(
-      `${formatDecimal("12300.00")} RUB`,
+      `${formatDecimal("12300.00")} ₽`,
     );
+    expect(formatMoney({ amount: "480.0000", currency: "RUB" })).toBe("480,00 ₽");
+    expect(formatMoney({ amount: "12.2286", currency: "USD" })).toBe("12,2286 $");
   });
 
   it("omits components that are not stated and keeps unknown ones explicit", () => {

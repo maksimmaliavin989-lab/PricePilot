@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ApiClient, ProcessingRun, SourceDocument, Supplier, Workspace } from "../api/client";
 import {
@@ -19,6 +19,8 @@ interface Props {
   workspace: Workspace;
   onGo?: (step: StepId, documentId?: string) => void;
   onProgress?: () => void;
+  /** Open the first document that still has unchecked lines (the «Проверка» step). */
+  openReview?: boolean | undefined;
 }
 
 const POLL_MS = 1000;
@@ -81,7 +83,8 @@ function stageText(doc: SourceDocument, run: ProcessingRun | undefined): string 
   return stage;
 }
 
-export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
+export function DocumentsView({ client, workspace, onGo, onProgress, openReview }: Props) {
+  const reviewOpened = useRef(false);
   const [documents, setDocuments] = useState<SourceDocument[]>([]);
   const [runs, setRuns] = useState<Record<string, ProcessingRun>>({});
   const [review, setReview] = useState<Record<string, ReviewState>>({});
@@ -106,6 +109,15 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
         setDocuments(loaded.documents);
         setRuns(loaded.runs);
         setReview(loaded.review);
+        if (openReview && !reviewOpened.current) {
+          reviewOpened.current = true;
+          const target =
+            loaded.documents.find((d) => {
+              const r = loaded.review[d.id];
+              return r !== undefined && r.checked < r.total;
+            }) ?? loaded.documents.find((d) => loaded.review[d.id] !== undefined);
+          if (target) setOpenId(target.id);
+        }
         setSuppliers(supplierPage.items);
       } catch (e: unknown) {
         if (!state.cancelled) setError(e);
@@ -114,7 +126,7 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
     return () => {
       state.cancelled = true;
     };
-  }, [client, workspace.id, tick]);
+  }, [client, workspace.id, tick, openReview]);
 
   const anyActive = Object.values(runs).some((r) => ACTIVE_RUN.has(r.status));
   useEffect(() => {
@@ -160,7 +172,16 @@ export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
 
   return (
     <section aria-labelledby="docs-title">
-      <h2 id="docs-title">Документы · {workspace.name}</h2>
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">Шаг 1 из 4 · {workspace.name}</span>
+          <h1 id="docs-title">Прайсы поставщиков</h1>
+          <p className="lede">
+            Загрузите файл — программа найдёт в нём таблицу, наименования и цены. Оригинал не
+            меняется.
+          </p>
+        </div>
+      </header>
       <ErrorNotice
         error={error}
         onDismiss={() => {

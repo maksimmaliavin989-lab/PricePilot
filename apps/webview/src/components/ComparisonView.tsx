@@ -53,6 +53,7 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
   const [currency, setCurrency] = useState(workspace.base_currency);
   const [asOf, setAsOf] = useState(today);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [tick, setTick] = useState(0);
 
@@ -91,6 +92,7 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
       setName("");
       setTick((t) => t + 1);
       setOpenId(created.id);
+      setShowNew(false);
     } catch (e: unknown) {
       setError(e);
     }
@@ -98,7 +100,16 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
 
   return (
     <section aria-labelledby="comparison-title">
-      <h2 id="comparison-title">Сравнение · {workspace.name}</h2>
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">Шаг 4 из 4 · {workspace.name}</span>
+          <h1 id="comparison-title">Сравнение поставщиков</h1>
+          <p className="lede">
+            Полная стоимость с доставкой и фасовкой, в пересчёте на единицу товара. Неизвестное не
+            считается нулём.
+          </p>
+        </div>
+      </header>
       <ErrorNotice
         error={error}
         onDismiss={() => {
@@ -141,7 +152,33 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
         </button>
       </div>
       {showSettings ? <CostSettings client={client} workspace={workspace} /> : null}
-      {matchedProducts || list.length ? (
+      {list.length && !showNew ? (
+        <div className="chips" role="group" aria-label="Сравнения">
+          {list.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="chip"
+              aria-pressed={c.id === openId}
+              onClick={() => {
+                setOpenId(c.id);
+              }}
+            >
+              {c.name} · {c.as_of}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="chip"
+            onClick={() => {
+              setShowNew(true);
+            }}
+          >
+            + Новое сравнение
+          </button>
+        </div>
+      ) : null}
+      {(matchedProducts && !list.length) || showNew ? (
         <form
           className="card form-grid"
           onSubmit={(e) => {
@@ -189,23 +226,6 @@ export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
             </button>
           </div>
         </form>
-      ) : null}
-      {list.length ? (
-        <div className="toolbar" role="list" aria-label="Сравнения">
-          {list.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="listitem"
-              aria-current={c.id === openId ? "true" : undefined}
-              onClick={() => {
-                setOpenId(c.id);
-              }}
-            >
-              {c.name} · {c.target_currency} · {c.as_of}
-            </button>
-          ))}
-        </div>
       ) : null}
       {openId ? (
         <ComparisonDetail
@@ -522,11 +542,11 @@ function ItemBlock({
   });
 
   return (
-    <section aria-label={item.product_name}>
-      <h4>
-        {item.product_name} · нужно {formatDecimal(item.required_quantity.value)}{" "}
+    <section aria-label={item.product_name} style={{ display: "grid", gap: 14 }}>
+      <h2>
+        {item.product_name} — нужно {formatDecimal(item.required_quantity.value)}{" "}
         {unitText(item.base_unit_code)}
-      </h4>
+      </h2>
       <form
         className="inline"
         onSubmit={(e) => {
@@ -593,51 +613,43 @@ function ItemBlock({
         ) : null}
       </form>
       {sorted.length ? (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Поставщик и предложение</th>
-              <th scope="col">Цена</th>
-              <th scope="col">Заказ</th>
-              <th scope="col">Итог</th>
-              <th scope="col">За {unitText(item.base_unit_code)}</th>
-              <th scope="col">Статус</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((co) => (
-              <OfferRows
-                key={co.id}
-                co={co}
-                open={openId === co.id}
-                onToggle={() => {
-                  setOpenId(openId === co.id ? null : co.id);
-                }}
-                policy={policy}
-                currency={comparison.target_currency}
-                supplierName={supplierName}
-                unitText={unitText}
-                busy={busy}
-                onSave={(terms) =>
-                  onRun(() => client.updateComparisonTerms(co.id, terms)).then(() =>
-                    onRun(() => client.calculateComparison(comparison.id)),
-                  )
-                }
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="offer-cards">
+          {sorted.map((co, index) => (
+            <OfferCard
+              key={co.id}
+              co={co}
+              best={index === 0 && sorted.length > 1 && co.snapshot?.complete === true}
+              open={openId === co.id}
+              onToggle={() => {
+                setOpenId(openId === co.id ? null : co.id);
+              }}
+              policy={policy}
+              currency={comparison.target_currency}
+              baseUnit={unitText(item.base_unit_code)}
+              supplierName={supplierName}
+              unitText={unitText}
+              busy={busy}
+              onSave={(terms) =>
+                onRun(() => client.updateComparisonTerms(co.id, terms)).then(() =>
+                  onRun(() => client.calculateComparison(comparison.id)),
+                )
+              }
+            />
+          ))}
+        </div>
       ) : null}
     </section>
   );
 }
 
-interface RowProps {
+interface CardProps {
   co: ComparisonOffer;
+  best: boolean;
   open: boolean;
   onToggle: () => void;
   policy: CostPolicy;
   currency: string;
+  baseUnit: string;
   supplierName: (id: string | null | undefined) => string;
   unitText: (code: string | null | undefined) => string;
   busy: boolean;
@@ -645,65 +657,115 @@ interface RowProps {
 }
 
 function statusOf(s: CostSnapshot | null | undefined): { text: string; className: string } {
-  if (!s) return { text: "не рассчитано", className: "status-processing" };
-  if (s.complete) return { text: "полный расчёт", className: "status-completed" };
-  if (!s.total) return { text: "есть неизвестные", className: "status-failed" };
-  return { text: "нужны подтверждения", className: "status-review_required" };
+  if (!s) return { text: "Не рассчитано", className: "status-processing" };
+  if (s.complete) return { text: "Полный расчёт", className: "status-completed" };
+  if (!s.total) return { text: "Нужно условие", className: "status-review_required" };
+  return { text: "Нужны подтверждения", className: "status-review_required" };
 }
 
-function OfferRows({
+/** One supplier offer: the cost per base unit first, what it is made of, what is missing. */
+function OfferCard({
   co,
+  best,
   open,
   onToggle,
   policy,
   currency,
+  baseUnit,
   supplierName,
   unitText,
   busy,
   onSave,
-}: RowProps) {
+}: CardProps) {
   const s = co.snapshot;
   const status = statusOf(s);
+  const priceType = priceName(co.offer.price_field_key);
+  const unknownLabels = s
+    ? s.components.filter((c) => c.amount === null).map((c) => c.label.toLowerCase())
+    : [];
+  const otherWarnings = s ? s.warnings.filter((w) => w.code !== "UNKNOWN_COMPONENT") : [];
   return (
-    <>
-      <tr>
-        <td>
-          <button type="button" className="link" aria-expanded={open} onClick={onToggle}>
-            {supplierName(co.offer.supplier_id)}: {co.offer.name}
-            {priceName(co.offer.price_field_key) ? ` · ${priceName(co.offer.price_field_key)}` : ""}
-          </button>
-        </td>
-        <td>
-          {formatMoney(co.offer.price)} / {unitText(co.offer.unit)}
-        </td>
-        <td>
-          {s ? `${formatDecimal(s.ordered.value)} ${unitText(s.ordered.unit)}` : "—"}
-          {s && s.purchased.unit !== s.ordered.unit ? (
-            <div className="meta">
-              = {formatDecimal(s.purchased.value)} {unitText(s.purchased.unit)}
+    <article
+      className={best ? "offer-card best" : "offer-card"}
+      aria-label={`${supplierName(co.offer.supplier_id)}: ${co.offer.name}`}
+    >
+      <div className="offer-head">
+        <div>
+          <div className="offer-supplier">
+            {supplierName(co.offer.supplier_id)}
+            {priceType ? ` · ${priceType}` : ""}
+          </div>
+          <strong>{co.offer.name}</strong>
+          <div className="meta">
+            {formatMoney(co.offer.price)} / {unitText(co.offer.unit)}
+          </div>
+        </div>
+        <span className={best ? "badge best-pill" : `badge ${status.className}`}>
+          {best ? "Выгоднее всего" : status.text}
+        </span>
+      </div>
+
+      {s ? (
+        <>
+          <div>
+            <div className={s.unit_cost ? "offer-price" : "offer-price unknown"}>
+              {s.unit_cost ? formatMoney(s.unit_cost) : "? ₽"} <small>/ {baseUnit}</small>
             </div>
+            <div className="meta">
+              {s.total
+                ? `Итого ${formatMoney(s.total)} · заказ ${formatDecimal(s.ordered.value)} ${unitText(s.ordered.unit)}`
+                : `Известно: ${formatMoney(s.known_subtotal)} — без: ${unknownLabels.join(", ")}`}
+            </div>
+          </div>
+          <ul className="offer-lines" aria-label="Из чего сложилась сумма">
+            {s.components.map((c) => (
+              <li key={c.code} className={c.amount === null ? "is-unknown" : undefined}>
+                <span>
+                  {c.label}
+                  {c.amount === null ? "" : <span className="meta"> · {c.detail}</span>}
+                </span>
+                <span>
+                  {c.amount === null
+                    ? UNKNOWN
+                    : formatMoney({ amount: c.amount, currency: c.currency })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {otherWarnings.length ? (
+            <ul className="reasons meta">
+              {otherWarnings.map((w) => (
+                <li key={w.message}>{w.message}</li>
+              ))}
+            </ul>
           ) : null}
-        </td>
-        <td>
-          {s ? formatMoney(s.total) : "—"}
-          {s && !s.total ? (
-            <div className="meta">известная часть: {formatMoney(s.known_subtotal)}</div>
-          ) : null}
-        </td>
-        <td>{s ? formatMoney(s.unit_cost) : "—"}</td>
-        <td>
-          <span className={`badge ${status.className}`}>{status.text}</span>
-        </td>
-      </tr>
+        </>
+      ) : (
+        <p className="meta">Нажмите «Рассчитать», чтобы увидеть полную стоимость.</p>
+      )}
+
+      <div className="actions">
+        <button
+          type="button"
+          className={s && !s.total ? "primary" : undefined}
+          aria-expanded={open}
+          onClick={onToggle}
+        >
+          {open ? "Скрыть условия" : s && !s.total ? "Указать условия" : "Условия и расшифровка"}
+        </button>
+      </div>
       {open ? (
-        <tr>
-          <td colSpan={6}>
-            {s ? <Breakdown snapshot={s} /> : null}
-            <TermsEditor policy={policy} co={co} currency={currency} busy={busy} onSave={onSave} />
-          </td>
-        </tr>
+        <div className="terms-box">
+          <TermsEditor policy={policy} co={co} currency={currency} busy={busy} onSave={onSave} />
+          {s ? (
+            <details>
+              <summary>Подробная расшифровка и источники</summary>
+              <Breakdown snapshot={s} />
+            </details>
+          ) : null}
+        </div>
       ) : null}
-    </>
+    </article>
   );
 }
 

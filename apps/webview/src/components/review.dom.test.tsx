@@ -68,7 +68,7 @@ describe("DocumentReview", () => {
     expect(screen.getByRole("heading", { name: "Поля строки 9" })).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("Сортировка"), { target: { value: "name" } });
-    fireEvent.change(screen.getByLabelText("Показать"), { target: { value: "attention" } });
+    fireEvent.click(screen.getByRole("button", { name: "С замечаниями · 1" }));
     expect(within(table).queryByText("Брус")).toBeNull();
     // Still selected, and the panel says so in text.
     expect(screen.getByRole("heading", { name: "Поля строки 9" })).toBeTruthy();
@@ -87,9 +87,9 @@ describe("DocumentReview", () => {
       />,
     );
     await screen.findByRole("table", { name: "Извлечённые строки" });
-    const filter = screen.getByLabelText("Показать");
-    expect(within(filter).getByText("Не проверено (2)")).toBeTruthy();
-    expect(within(filter).getByText("С замечаниями (1)")).toBeTruthy();
+    const filter = screen.getByRole("group", { name: "Показать" });
+    expect(within(filter).getByText("Не проверено · 2")).toBeTruthy();
+    expect(within(filter).getByText("С замечаниями · 1")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("Проверено 0 из 3");
     const next = screen.getByRole("region", { name: "Следующий шаг" });
     expect(next.textContent).toContain("разберите строки с замечаниями (1)");

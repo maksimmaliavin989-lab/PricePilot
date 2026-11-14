@@ -4,11 +4,26 @@ import { formatDecimal } from "./format";
 export const UNKNOWN = "неизвестно";
 
 /** Money for display; a missing amount is shown as unknown, never as zero. */
+const CURRENCY_SIGNS: Record<string, string> = { RUB: "₽", USD: "$", EUR: "€", CNY: "¥" };
+
+export function currencySign(code: string): string {
+  return CURRENCY_SIGNS[code] ?? code;
+}
+
+/** Display only: "480.0000" → "480.00", "12.2286" stays. The stored value is not touched. */
+export function trimScale(amount: string): string {
+  const match = /^(-?\d+)\.(\d{2})(\d*)$/.exec(amount);
+  if (!match) return amount;
+  const [, int = "", cents = "", rest = ""] = match;
+  const extra = rest.replace(/0+$/, "");
+  return `${int}.${cents}${extra}`;
+}
+
 export function formatMoney(
   value: { amount: string; currency: string } | null | undefined,
 ): string {
   if (!value) return UNKNOWN;
-  return `${formatDecimal(value.amount)} ${value.currency}`;
+  return `${formatDecimal(trimScale(value.amount))} ${currencySign(value.currency)}`;
 }
 
 export const CATEGORY_LABELS: Record<ComponentType["category"], string> = {

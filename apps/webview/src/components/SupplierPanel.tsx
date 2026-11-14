@@ -195,7 +195,13 @@ export function SupplierPanel({ client, workspace, onGo }: Props) {
 
   return (
     <section aria-labelledby="sup-title">
-      <h2 id="sup-title">Поставщики · {workspace.name}</h2>
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">{workspace.name}</span>
+          <h1 id="sup-title">Поставщики</h1>
+          <p className="lede">Кто присылает прайсы. Поставщика можно указать и при загрузке.</p>
+        </div>
+      </header>
       <NextStep
         title={
           suppliers.length

@@ -21,6 +21,7 @@
 ## ADR-007: Библиотеки foundation (TASK_001)
 **Статус:** принято для MVP, пересмотреть при упаковке (TASK_005). Всё работает офлайн, без телеметрии.
 - Backend: FastAPI (MIT), Starlette (BSD-3), Uvicorn (BSD-3), Pydantic (MIT), SQLAlchemy 2 Core (MIT), Alembic (MIT), platformdirs (MIT). FastAPI тянет `opentelemetry-api` (Apache-2.0) — только API, без экспортёров и сетевой отправки. Dev: pytest (MIT), httpx (BSD-3), ruff (MIT), mypy (MIT); окружение — uv.
+- UI-шрифт: Onest (SIL OFL 1.1) из пакета `@fontsource/onest` — файлы шрифта входят в сборку, к Google Fonts и в сеть приложение не обращается.
 - UI: React 19 (MIT), Vite 8 (MIT), TypeScript 5.9 (Apache-2.0; 5.x, так как openapi-typescript/typescript-eslint ещё не поддерживают 7.x), openapi-typescript (MIT), ESLint + typescript-eslint (MIT), Prettier (MIT), Vitest (MIT), `@tauri-apps/api` (MIT/Apache-2.0).
 - Desktop: Tauri 2 (MIT/Apache-2.0), serde/serde_json, getrandom (MIT/Apache-2.0). Плагины Tauri не подключены.
 - Импорт (TASK_003): openpyxl (MIT) в режиме read-only, формулы не вычисляются; defusedxml (PSF) — защита XML от billion-laughs/XXE, openpyxl подключает его автоматически. CSV — стандартная библиотека.

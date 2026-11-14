@@ -159,16 +159,23 @@ export function DocumentReview({
 
   return (
     <section aria-labelledby="review-title">
-      <div className="toolbar">
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">
+            Шаг 2 из 4 · {document.original_name} · {supplierName}
+          </span>
+          <h1 id="review-title">Проверьте, что программа прочитала верно</h1>
+          <p className="lede">
+            Справа — строка из исходного файла. Подтвердите значение или исправьте его.{" "}
+            <span className={`badge status-${document.status}`}>
+              {DOCUMENT_STATUS_LABELS[document.status]}
+            </span>
+          </p>
+        </div>
         <button type="button" onClick={onBack}>
-          ← К документам
+          ← Все прайсы
         </button>
-        <h2 id="review-title">{document.original_name}</h2>
-        <span className={`badge status-${document.status}`}>
-          {DOCUMENT_STATUS_LABELS[document.status]}
-        </span>
-        <span className="meta">{supplierName}</span>
-      </div>
+      </header>
       <ErrorNotice
         error={error}
         onDismiss={() => {
@@ -179,11 +186,31 @@ export function DocumentReview({
         <p className="muted">Загрузка строк…</p>
       ) : (
         <>
-          <p className="meta" role="status">
-            Проверено {counts.checked} из {lines.length} · не проверено {counts.pending} · с
-            замечаниями {counts.attention}
-            {bulk ? ` · подтверждение: ${String(bulk.done)} из ${String(bulk.total)}` : ""}
-          </p>
+          <section className="card" aria-label="Прогресс проверки">
+            <div className="progress" aria-hidden="true">
+              <span className="p-ok" style={{ flex: counts.checked }} />
+              <span className="p-warn" style={{ flex: counts.attention }} />
+              <span className="p-todo" style={{ flex: counts.pending }} />
+            </div>
+            <p className="legend" role="status" style={{ margin: "10px 0 0" }}>
+              <span>
+                <i style={{ background: "var(--ok)" }} />
+                Проверено {counts.checked} из {lines.length}
+              </span>
+              <span>
+                <i style={{ background: "var(--warn)" }} />с замечаниями {counts.attention}
+              </span>
+              <span>
+                <i style={{ background: "var(--border-strong)" }} />
+                не проверено {counts.pending}
+              </span>
+              {bulk ? (
+                <span>
+                  подтверждение: {bulk.done} из {bulk.total}
+                </span>
+              ) : null}
+            </p>
+          </section>
           {counts.attention > 0 ? (
             <NextStep
               title={`разберите строки с замечаниями (${String(counts.attention)})`}
@@ -226,20 +253,28 @@ export function DocumentReview({
             </NextStep>
           )}
           <div className="toolbar" role="group" aria-label="Фильтр и сортировка строк">
-            <label>
-              Показать
-              <select
-                value={filter}
-                onChange={(e) => {
-                  setFilter(e.target.value as LineFilter);
-                }}
-              >
-                <option value="all">Все строки ({lines.length})</option>
-                <option value="pending">Не проверено ({counts.pending})</option>
-                <option value="attention">С замечаниями ({counts.attention})</option>
-                <option value="checked">Проверено ({counts.checked})</option>
-              </select>
-            </label>
+            <div className="chips" role="group" aria-label="Показать">
+              {(
+                [
+                  ["attention", "С замечаниями", counts.attention],
+                  ["pending", "Не проверено", counts.pending],
+                  ["checked", "Проверено", counts.checked],
+                  ["all", "Все строки", lines.length],
+                ] as const
+              ).map(([value, label, count]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="chip"
+                  aria-pressed={filter === value}
+                  onClick={() => {
+                    setFilter(value);
+                  }}
+                >
+                  {label} · {count}
+                </button>
+              ))}
+            </div>
             <label>
               Сортировка
               <select

@@ -108,7 +108,7 @@ export function steps(p: Progress): StepView[] {
   return [
     {
       id: "import",
-      title: "Загрузить прайс",
+      title: "Прайсы",
       hint: p.documents
         ? `обработано документов: ${String(p.documents)}`
         : p.processing
@@ -118,7 +118,7 @@ export function steps(p: Progress): StepView[] {
     },
     {
       id: "review",
-      title: "Проверить строки",
+      title: "Проверка",
       hint: p.lines
         ? `проверено ${String(p.checkedLines)} из ${String(p.lines)}`
         : "цены и единицы из файла",
@@ -126,15 +126,15 @@ export function steps(p: Progress): StepView[] {
     },
     {
       id: "match",
-      title: "Сопоставить с каталогом",
+      title: "Ваши товары",
       hint: p.offerLines
         ? `сопоставлено ${String(p.matchedLines)} из ${String(p.offerLines)} строк`
-        : "строки прайса → товары",
+        : "связать строки с товарами",
       state: state(p.offerLines > 0 && p.matchedLines === p.offerLines, p.matchedLines > 0),
     },
     {
       id: "compare",
-      title: "Сравнить предложения",
+      title: "Сравнение",
       hint: !p.comparisons
         ? "полная стоимость"
         : !p.calculated

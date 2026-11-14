@@ -187,7 +187,45 @@ export function MatchingView({ client, workspace, initialDocumentId, onGo, onPro
 
   return (
     <section aria-labelledby="matching-title">
-      <h2 id="matching-title">Сопоставление · {workspace.name}</h2>
+      <header className="page-head">
+        <div>
+          <span className="eyebrow">Шаг 3 из 4 · {workspace.name}</span>
+          <h1 id="matching-title">Свяжите строки прайса с вашими товарами</h1>
+          <p className="lede">
+            Тогда цены разных поставщиков на один и тот же товар можно сравнить. Связывать все
+            строки не нужно — только то, что вы закупаете.
+          </p>
+        </div>
+      </header>
+      <div className="explainer" aria-label="Как это работает">
+        <div>
+          <small>ПОСТАВЩИК А</small>
+          Цемент М500 ДО, мешок 50 кг
+          <div className="meta">540 ₽ за мешок</div>
+        </div>
+        <div>
+          <small>ПОСТАВЩИК Б</small>
+          Портландцемент ПЦ500-Д0, 50 кг
+          <div className="meta">475 ₽ за мешок</div>
+        </div>
+        <div className="explainer-arrow" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28">
+            <path
+              d="M6 14h16M16 8l6 6-6 6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+        <div className="explainer-target">
+          <small>ВАШ ТОВАР</small>
+          <strong>Цемент М500 Д0, 50 кг</strong>
+          <div className="meta">2 цены — их можно сравнить</div>
+        </div>
+      </div>
       <ErrorNotice
         error={error}
         onDismiss={() => {
@@ -288,7 +326,9 @@ export function MatchingView({ client, workspace, initialDocumentId, onGo, onPro
                       {g.partial ? (
                         <span className="badge status-review_required">частично</span>
                       ) : g.matched ? (
-                        <span className="badge status-completed">{productName(g.matched)}</span>
+                        <span className="badge wrap status-completed">
+                          {productName(g.matched)}
+                        </span>
                       ) : (
                         <span className="muted">не сопоставлено</span>
                       )}

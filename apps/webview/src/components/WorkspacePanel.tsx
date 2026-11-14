@@ -56,7 +56,15 @@ export function WorkspacePanel({ client, workspaces, activeId, onSelect, onChang
 
   return (
     <section aria-labelledby="ws-title">
-      <h2 id="ws-title">Рабочие пространства</h2>
+      <header className="page-head">
+        <div>
+          <h1 id="ws-title">Рабочие пространства</h1>
+          <p className="lede">
+            Отдельные проекты закупок: у каждого свои прайсы, товары и сравнения. Данные хранятся на
+            этом компьютере.
+          </p>
+        </div>
+      </header>
       <ErrorNotice
         error={error}
         onDismiss={() => {
