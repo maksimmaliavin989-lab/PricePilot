@@ -97,6 +97,12 @@ class SqlOfferRepository:
         ).first()
         return _offer(row) if row else None
 
+    def for_document(self, document_id: UUID) -> list[SupplierOffer]:
+        rows = self._c.execute(
+            select(supplier_offers).where(supplier_offers.c.source_document_id == document_id)
+        )
+        return [_offer(r) for r in rows]
+
     def keys_for_document(self, document_id: UUID) -> set[tuple[UUID, str]]:
         rows = self._c.execute(
             select(supplier_offers.c.extracted_line_id, supplier_offers.c.price_field_key).where(

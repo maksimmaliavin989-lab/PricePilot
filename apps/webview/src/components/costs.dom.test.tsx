@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { ApiClient, type CostSnapshot, type Offer } from "../api/client";
 import { Breakdown } from "./ComparisonView";
-import { OfferPanel } from "./MatchingView";
+import { groupOffers } from "../journey/progress";
+import { LinePanel } from "./MatchingView";
 
 afterEach(() => {
   cleanup();
@@ -76,6 +77,7 @@ describe("Breakdown", () => {
 
 const OFFER = {
   id: "o1",
+  extracted_line_id: "l1",
   name: "Цемент М400 Д20, мешок 50 кг",
   unit: "pc",
   price: { amount: "495", currency: "RUB" },
@@ -90,7 +92,11 @@ const OFFER = {
   supplier_id: null,
 } as unknown as Offer;
 
-describe("OfferPanel", () => {
+function fail(): never {
+  throw new Error("no group");
+}
+
+describe("LinePanel", () => {
   it("requires a reason before accepting a candidate the matcher blocked", async () => {
     const posted: unknown[] = [];
     const client = new ApiClient({ baseUrl: "", token: null }, (input, init) => {
@@ -126,9 +132,9 @@ describe("OfferPanel", () => {
       return json({}, 404);
     });
     render(
-      <OfferPanel
+      <LinePanel
         client={client}
-        offer={OFFER}
+        group={groupOffers([OFFER])[0] ?? fail()}
         units={[]}
         productName={() => "товар"}
         onChanged={() => undefined}

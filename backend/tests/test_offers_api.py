@@ -274,3 +274,26 @@ def test_offer_must_be_matched_and_convertible(
         json={"product_id": product["id"], "required_quantity": {"value": "10", "unit": "kg"}},
     )
     assert wrong_unit.status_code == 422
+
+
+def test_offers_follow_their_line_after_review(
+    client: TestClient,
+    ws: dict[str, Any],  # noqa: F811
+) -> None:
+    doc_id = imported(client, ws, LIST_1)
+    offer = cement(offers_of(client, ws, doc_id))
+    assert offer["price_confirmed"] is False
+    lines = client.get(f"{API}/documents/{doc_id}/lines", params={"limit": 200}).json()["items"]
+    line = next(item for item in lines if item["id"] == offer["extracted_line_id"])
+    price = next(f for f in line["fields"] if f["field_key"] == "price")
+    decided = client.post(
+        f"{API}/extracted-fields/{price['id']}/decision",
+        json={"decision": "accept", "reason": None, "expected_revision": price["revision"]},
+    )
+    assert decided.status_code == 200, decided.text
+    again = client.post(f"{API}/documents/{doc_id}/offers").json()
+    assert (again["created"], again["updated"], again["existing"]) == (0, 1, 38)
+    refreshed = client.get(f"{API}/offers/{offer['id']}").json()
+    assert refreshed["price_confirmed"] is True
+    assert refreshed["price"] == offer["price"]  # the original price is kept as it was read
+    assert refreshed["version"] == offer["version"] + 1

@@ -10,10 +10,14 @@ import {
 import { DocumentReview } from "./DocumentReview";
 import { ErrorNotice } from "./ErrorNotice";
 import { ImportPanel } from "./ImportPanel";
+import { NextStep } from "./NextStep";
+import type { StepId } from "../journey/progress";
 
 interface Props {
   client: ApiClient;
   workspace: Workspace;
+  onGo?: (step: StepId, documentId?: string) => void;
+  onProgress?: () => void;
 }
 
 const POLL_MS = 1000;
@@ -51,7 +55,7 @@ function stageText(doc: SourceDocument, run: ProcessingRun | undefined): string 
   return stage;
 }
 
-export function DocumentsView({ client, workspace }: Props) {
+export function DocumentsView({ client, workspace, onGo, onProgress }: Props) {
   const [documents, setDocuments] = useState<SourceDocument[]>([]);
   const [runs, setRuns] = useState<Record<string, ProcessingRun>>({});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -116,7 +120,12 @@ export function DocumentsView({ client, workspace }: Props) {
         onBack={() => {
           setOpenId(null);
           refresh();
+          onProgress?.();
         }}
+        onNext={() => {
+          onGo?.("match", open.id);
+        }}
+        onReviewed={onProgress}
       />
     );
   }
@@ -130,6 +139,46 @@ export function DocumentsView({ client, workspace }: Props) {
           setError(null);
         }}
       />
+      {(() => {
+        const ready = documents.filter((d) => (runs[d.id]?.counts.lines ?? 0) > 0);
+        if (documents.length === 0) {
+          return (
+            <NextStep title="загрузите прайс поставщика">
+              Выберите поставщика и перетащите файл (XLSX, XLS, CSV, DOCX, PDF, JPG, PNG) в поле
+              выше. Оригинал сохраняется без изменений.
+            </NextStep>
+          );
+        }
+        if (anyActive && ready.length === 0) {
+          return <NextStep title="дождитесь окончания обработки">Статус обновляется сам.</NextStep>;
+        }
+        const first = ready[0];
+        if (!first) {
+          return (
+            <NextStep title="загрузите другой файл">
+              Ни один документ не дал строк прайса — причина указана в столбце «Этап».
+            </NextStep>
+          );
+        }
+        return (
+          <NextStep
+            title={`проверьте строки «${first.original_name}»`}
+            action={{
+              label: "Проверить строки",
+              onClick: () => {
+                setOpenId(first.id);
+              },
+            }}
+            secondary={{
+              label: "Сразу к сопоставлению",
+              onClick: () => onGo?.("match", first.id),
+            }}
+          >
+            Проверка подтверждает цены и единицы из файла. Без неё сравнение посчитается, но будет
+            помечено «нужны подтверждения».
+          </NextStep>
+        );
+      })()}
       <ImportPanel
         client={client}
         workspace={workspace}

@@ -1,7 +1,7 @@
 import type { Field, Line } from "../api/client";
 import { isPriceKey } from "./format";
 
-export type LineFilter = "all" | "attention" | "checked";
+export type LineFilter = "all" | "pending" | "attention" | "checked";
 export type LineSort = "source" | "name";
 
 /**
@@ -29,7 +29,7 @@ export function lineState(line: Line): LineState {
 }
 
 export const LINE_STATE_LABELS: Record<LineState, string> = {
-  attention: "Требует внимания",
+  attention: "Есть замечания",
   checked: "Проверено",
   pending: "Не проверено",
 };
@@ -48,6 +48,7 @@ export function visibleLines(
     const state = lineState(line);
     if (options.filter === "attention" && state !== "attention") return false;
     if (options.filter === "checked" && state !== "checked") return false;
+    if (options.filter === "pending" && state !== "pending") return false;
     if (!needle) return true;
     return line.raw_text.toLocaleLowerCase("ru").includes(needle);
   });

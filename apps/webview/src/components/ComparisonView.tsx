@@ -27,17 +27,24 @@ import {
 import { formatDecimal } from "../review/format";
 import { CostSettings } from "./CostSettings";
 import { ErrorNotice } from "./ErrorNotice";
+import { NextStep } from "./NextStep";
+import type { StepId } from "../journey/progress";
+import { priceName } from "../review/format";
 
 interface Props {
   client: ApiClient;
   workspace: Workspace;
+  onGo?: ((step: StepId, documentId?: string) => void) | undefined;
+  onProgress?: (() => void) | undefined;
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date(); // the user's local calendar date, not UTC
+  return `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function ComparisonView({ client, workspace }: Props) {
+export function ComparisonView({ client, workspace, onGo, onProgress }: Props) {
+  const [matchedProducts, setMatchedProducts] = useState<number | null>(null);
   const [list, setList] = useState<ComparisonSummary[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -51,8 +58,15 @@ export function ComparisonView({ client, workspace }: Props) {
     const state = { cancelled: false };
     void (async () => {
       try {
-        const page = await client.listComparisons(workspace.id);
-        if (!state.cancelled) setList([...page.items].reverse());
+        const [page, offers] = await Promise.all([
+          client.listComparisons(workspace.id),
+          client.listAllOffers(workspace.id),
+        ]);
+        if (state.cancelled) return;
+        const items = [...page.items].reverse();
+        setList(items);
+        setMatchedProducts(new Set(offers.map((o) => o.matched_product_id).filter(Boolean)).size);
+        setOpenId((current) => current ?? items[0]?.id ?? null);
       } catch (e: unknown) {
         if (!state.cancelled) setError(e);
       }
@@ -88,6 +102,20 @@ export function ComparisonView({ client, workspace }: Props) {
           setError(null);
         }}
       />
+      {matchedProducts === 0 ? (
+        <NextStep
+          title="сначала сопоставьте строки прайса с товарами каталога"
+          action={{ label: "Перейти к сопоставлению", onClick: () => onGo?.("match") }}
+        >
+          Сравниваются только предложения, сопоставленные с товаром каталога. Откройте
+          «Сопоставление», выберите строку и подтвердите кандидата или создайте товар из строки.
+        </NextStep>
+      ) : list.length === 0 && matchedProducts ? (
+        <NextStep title="создайте сравнение">
+          Введите название в форме ниже и нажмите «Создать». Товаров с предложениями:{" "}
+          {matchedProducts}.
+        </NextStep>
+      ) : null}
       <div className="toolbar">
         <button
           type="button"
@@ -174,6 +202,8 @@ export function ComparisonView({ client, workspace }: Props) {
           client={client}
           workspace={workspace}
           comparisonId={openId}
+          onGo={onGo}
+          onProgress={onProgress}
         />
       ) : null}
     </section>
@@ -184,9 +214,17 @@ interface DetailProps {
   client: ApiClient;
   workspace: Workspace;
   comparisonId: string;
+  onGo?: ((step: StepId, documentId?: string) => void) | undefined;
+  onProgress?: (() => void) | undefined;
 }
 
-export function ComparisonDetail({ client, workspace, comparisonId }: DetailProps) {
+export function ComparisonDetail({
+  client,
+  workspace,
+  comparisonId,
+  onGo,
+  onProgress,
+}: DetailProps) {
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [policy, setPolicy] = useState<CostPolicy | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -226,17 +264,21 @@ export function ComparisonDetail({ client, workspace, comparisonId }: DetailProp
     };
   }, [client, workspace.id, comparisonId]);
 
-  const run = useCallback(async (action: () => Promise<Comparison>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      setComparison(await action());
-    } catch (e: unknown) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const run = useCallback(
+    async (action: () => Promise<Comparison>) => {
+      setBusy(true);
+      setError(null);
+      try {
+        setComparison(await action());
+        onProgress?.();
+      } catch (e: unknown) {
+        setError(e);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onProgress],
+  );
 
   const supplierName = useMemo(() => {
     const names = new Map(suppliers.map((s) => [s.id, s.name]));
@@ -260,6 +302,93 @@ export function ComparisonDetail({ client, workspace, comparisonId }: DetailProp
 
   const chosen = products.find((p) => p.id === productId);
   const inComparison = new Set(comparison.items.map((i) => i.product_id));
+  const offerCount = new Map<string, number>();
+  for (const o of offers) {
+    if (o.matched_product_id) {
+      offerCount.set(o.matched_product_id, (offerCount.get(o.matched_product_id) ?? 0) + 1);
+    }
+  }
+  const candidates = products.filter((p) => offerCount.has(p.id) && !inComparison.has(p.id));
+  const attachedCount = comparison.items.reduce((n, i) => n + i.offers.length, 0);
+  const snapshots = comparison.items.flatMap((i) => i.offers.map((o) => o.snapshot));
+  const stale = attachedCount > 0 && snapshots.some((s) => !s);
+  const unknowns = snapshots.filter((s) => s && !s.total).length;
+
+  function guide() {
+    if (offerCount.size === 0) {
+      return (
+        <NextStep
+          title="сопоставьте строки прайса с товарами каталога"
+          action={{ label: "Перейти к сопоставлению", onClick: () => onGo?.("match") }}
+        >
+          В сравнение попадают только сопоставленные предложения.
+        </NextStep>
+      );
+    }
+    if (comparison?.items.length === 0) {
+      return (
+        <NextStep title="добавьте товар и нужное количество">
+          Выберите товар ниже (в списке — только товары с сопоставленными предложениями), укажите
+          количество в его единице учёта и нажмите «Добавить позицию».
+        </NextStep>
+      );
+    }
+    if (attachedCount === 0) {
+      return (
+        <NextStep
+          title="добавьте предложения поставщиков"
+          action={{
+            label: "Добавить все сопоставленные предложения",
+            disabled: busy,
+            onClick: () =>
+              void run(async () => {
+                let latest: Comparison | null = null;
+                for (const item of comparison?.items ?? []) {
+                  for (const o of offers.filter((x) => x.matched_product_id === item.product_id)) {
+                    latest = await client.addComparisonOffer(item.id, {
+                      offer_id: o.id,
+                      components: [],
+                      minimum_order: null,
+                      order_multiple: null,
+                      price_includes_vat: null,
+                    });
+                  }
+                }
+                return latest ?? client.getComparison(comparisonId);
+              }),
+          }}
+        >
+          Каждая исходная цена (опт, розница) станет отдельной строкой сравнения.
+        </NextStep>
+      );
+    }
+    if (stale) {
+      return (
+        <NextStep
+          title="рассчитайте полную стоимость"
+          action={{
+            label: "Рассчитать",
+            onClick: () => void run(() => client.calculateComparison(comparisonId)),
+            disabled: busy,
+          }}
+        />
+      );
+    }
+    if (unknowns > 0) {
+      return (
+        <NextStep title={`заполните неизвестные условия (${String(unknowns)} предл.)`}>
+          Нажмите на поставщика в таблице: в расшифровке видно, чего не хватает (например,
+          доставки). Укажите сумму или отметьте «не применяется» и сохраните — итог пересчитается.
+        </NextStep>
+      );
+    }
+    return (
+      <NextStep title="выберите поставщика">
+        Предложения отсортированы по стоимости базовой единицы; полные расчёты — выше. Нажмите на
+        строку, чтобы увидеть расшифровку и источники.
+      </NextStep>
+    );
+  }
 
   return (
     <div className="card">
@@ -272,6 +401,7 @@ export function ComparisonDetail({ client, workspace, comparisonId }: DetailProp
           setError(null);
         }}
       />
+      {guide()}
       <form
         className="inline"
         onSubmit={(e) => {
@@ -298,18 +428,17 @@ export function ComparisonDetail({ client, workspace, comparisonId }: DetailProp
             }}
           >
             <option value="">— выберите —</option>
-            {products
-              .filter((p) => !inComparison.has(p.id))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.canonical_name}
-                </option>
-              ))}
+            {candidates.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.canonical_name} — предложений: {offerCount.get(p.id) ?? 0}
+              </option>
+            ))}
           </select>
         </label>
         <label>
           Нужно{" "}
           <input
+            aria-label="Нужное количество"
             value={quantity}
             inputMode="decimal"
             size={8}
@@ -331,11 +460,6 @@ export function ComparisonDetail({ client, workspace, comparisonId }: DetailProp
           Рассчитать
         </button>
       </form>
-      {comparison.items.length === 0 ? (
-        <p className="muted">
-          Добавьте товары каталога. Предложения появятся здесь после сопоставления.
-        </p>
-      ) : null}
       {comparison.items.map((item) => (
         <ItemBlock
           key={item.id}
@@ -420,14 +544,39 @@ function ItemBlock({
             .filter((o) => !attached.has(o.id))
             .map((o) => (
               <option key={o.id} value={o.id}>
-                {supplierName(o.supplier_id)}: {o.name} — {formatMoney(o.price)} /{" "}
-                {unitText(o.unit)}
+                {supplierName(o.supplier_id)}: {o.name} —{" "}
+                {priceName(o.price_field_key) ? `${priceName(o.price_field_key)} ` : ""}
+                {formatMoney(o.price)} / {unitText(o.unit)}
               </option>
             ))}
         </select>
         <button type="submit" disabled={busy || !offerId}>
           Добавить предложение
         </button>
+        {offers.some((o) => !attached.has(o.id)) ? (
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() =>
+              void onRun(async () => {
+                let latest: Comparison | null = null;
+                for (const o of offers.filter((x) => !attached.has(x.id))) {
+                  latest = await client.addComparisonOffer(item.id, {
+                    offer_id: o.id,
+                    components: [],
+                    minimum_order: null,
+                    order_multiple: null,
+                    price_includes_vat: null,
+                  });
+                }
+                return latest ?? client.getComparison(comparison.id);
+              })
+            }
+          >
+            Добавить все предложения ({offers.filter((o) => !attached.has(o.id)).length})
+          </button>
+        ) : null}
         {offers.length === 0 ? (
           <span className="meta">Нет сопоставленных предложений — откройте «Сопоставление».</span>
         ) : null}
@@ -510,6 +659,7 @@ function OfferRows({
         <td>
           <button type="button" className="link" aria-expanded={open} onClick={onToggle}>
             {supplierName(co.offer.supplier_id)}: {co.offer.name}
+            {priceName(co.offer.price_field_key) ? ` · ${priceName(co.offer.price_field_key)}` : ""}
           </button>
         </td>
         <td>
@@ -517,7 +667,7 @@ function OfferRows({
         </td>
         <td>
           {s ? `${formatDecimal(s.ordered.value)} ${unitText(s.ordered.unit)}` : "—"}
-          {s ? (
+          {s && s.purchased.unit !== s.ordered.unit ? (
             <div className="meta">
               = {formatDecimal(s.purchased.value)} {unitText(s.purchased.unit)}
             </div>

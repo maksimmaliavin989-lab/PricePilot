@@ -345,7 +345,7 @@ export interface paths {
         put?: never;
         /**
          * Создать предложения из проверенных строк документа
-         * @description Идемпотентно: существующие предложения не дублируются. Строки без цены, с отклонённым названием или с несколькими ценами без выбора пропускаются с причиной.
+         * @description Идемпотентно: существующие предложения не дублируются, а обновляются по проверенной строке (подтверждённая или исправленная цена). Строки без цены, с отклонённым названием или с несколькими ценами без выбора пропускаются с причиной.
          */
         post: operations["create_offers_api_v1_documents__document_id__offers_post"];
         delete?: never;
@@ -1450,8 +1450,16 @@ export interface components {
         OfferImportOut: {
             /** Created */
             created: number;
-            /** Existing */
+            /**
+             * Existing
+             * @description Уже были и не изменились
+             */
             existing: number;
+            /**
+             * Updated
+             * @description Уже были и обновлены по проверенной строке
+             */
+            updated: number;
             /** Skipped */
             skipped: components["schemas"]["SkippedLineOut"][];
         };

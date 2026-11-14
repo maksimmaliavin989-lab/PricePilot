@@ -3,12 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiClient, type Health, type Workspace } from "./api/client";
 import { isTauri, resolveConnection } from "./api/connection";
 import { ErrorNotice } from "./components/ErrorNotice";
+import { JourneyBar } from "./components/JourneyBar";
 import { BackupPanel } from "./components/BackupPanel";
 import { ComparisonView } from "./components/ComparisonView";
 import { DocumentsView } from "./components/DocumentsView";
 import { MatchingView } from "./components/MatchingView";
 import { SupplierPanel } from "./components/SupplierPanel";
 import { WorkspacePanel } from "./components/WorkspacePanel";
+import { EMPTY_PROGRESS, loadProgress, type Progress, type StepId } from "./journey/progress";
 
 type View = "workspaces" | "suppliers" | "documents" | "matching" | "comparison";
 const ACTIVE_KEY = "pricepilot.activeWorkspace";
@@ -47,6 +49,12 @@ export function App() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeId, setActiveId] = useState<string | null>(readActive);
   const [view, setView] = useState<View>("workspaces");
+  const [focusDocument, setFocusDocument] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
+  const [progressTick, setProgressTick] = useState(0);
+  const refreshProgress = useCallback(() => {
+    setProgressTick((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     const state = { cancelled: false };
@@ -81,6 +89,34 @@ export function App() {
     () => workspaces.find((w) => w.id === activeId) ?? null,
     [workspaces, activeId],
   );
+
+  useEffect(() => {
+    if (!client || !active) return undefined;
+    const state = { cancelled: false };
+    loadProgress(client, active.id).then(
+      (p) => {
+        if (!state.cancelled) setProgress(p);
+      },
+      () => undefined, // the path bar is a hint; screens show their own errors
+    );
+    return () => {
+      state.cancelled = true;
+    };
+  }, [client, active, view, progressTick]);
+
+  const go = useCallback((step: StepId, documentId?: string) => {
+    setFocusDocument(documentId ?? null);
+    setView(step === "match" ? "matching" : step === "compare" ? "comparison" : "documents");
+  }, []);
+
+  const activeStep: StepId | null =
+    view === "documents"
+      ? "review"
+      : view === "matching"
+        ? "match"
+        : view === "comparison"
+          ? "compare"
+          : null;
 
   function select(id: string) {
     setActiveId(id);
@@ -151,6 +187,9 @@ export function App() {
               : "Запуск локального сервиса…"}
         </p>
       </header>
+      {active && view !== "workspaces" ? (
+        <JourneyBar progress={progress} active={activeStep} onGo={go} />
+      ) : null}
       <main>
         <ErrorNotice error={fatal} />
         {health?.migration ? (
@@ -175,13 +214,32 @@ export function App() {
           <SupplierPanel key={active.id} client={client} workspace={active} />
         ) : null}
         {client && view === "documents" && active ? (
-          <DocumentsView key={active.id} client={client} workspace={active} />
+          <DocumentsView
+            key={active.id}
+            client={client}
+            workspace={active}
+            onGo={go}
+            onProgress={refreshProgress}
+          />
         ) : null}
         {client && view === "matching" && active ? (
-          <MatchingView key={active.id} client={client} workspace={active} />
+          <MatchingView
+            key={`${active.id}-${focusDocument ?? ""}`}
+            client={client}
+            workspace={active}
+            initialDocumentId={focusDocument}
+            onGo={go}
+            onProgress={refreshProgress}
+          />
         ) : null}
         {client && view === "comparison" && active ? (
-          <ComparisonView key={active.id} client={client} workspace={active} />
+          <ComparisonView
+            key={active.id}
+            client={client}
+            workspace={active}
+            onGo={go}
+            onProgress={refreshProgress}
+          />
         ) : null}
       </main>
     </div>

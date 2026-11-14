@@ -20,6 +20,7 @@ import {
 } from "../review/lines";
 import { ErrorNotice } from "./ErrorNotice";
 import { FieldEditor } from "./FieldEditor";
+import { NextStep } from "./NextStep";
 import { SourcePanel } from "./SourcePanel";
 
 interface Props {
@@ -27,6 +28,9 @@ interface Props {
   document: SourceDocument;
   supplierName: string;
   onBack: () => void;
+  /** Go to the next step of the path (matching this document's lines). */
+  onNext?: (() => void) | undefined;
+  onReviewed?: (() => void) | undefined;
 }
 
 function priceSummary(line: Line): string {
@@ -40,7 +44,15 @@ function priceSummary(line: Line): string {
     .join(" · ");
 }
 
-export function DocumentReview({ client, document, supplierName, onBack }: Props) {
+export function DocumentReview({
+  client,
+  document,
+  supplierName,
+  onBack,
+  onNext,
+  onReviewed,
+}: Props) {
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [error, setError] = useState<unknown>(null);
@@ -83,8 +95,40 @@ export function DocumentReview({ client, document, supplierName, onBack }: Props
     return {
       attention: all.filter((l) => lineState(l) === "attention").length,
       checked: all.filter((l) => lineState(l) === "checked").length,
+      pending: all.filter((l) => lineState(l) === "pending").length,
     };
   }, [lines]);
+
+  /** Accepts every field of the lines that have no extraction remark and are unchecked.
+   * An explicit action of the user (confirmed in a dialog); lines with remarks stay. */
+  async function acceptClean() {
+    const clean = (lines ?? []).filter((l) => lineState(l) === "pending");
+    const fields = clean.flatMap((l) => l.fields.filter((f) => f.review_status === "unreviewed"));
+    if (fields.length === 0) return;
+    const ok = window.confirm(
+      `Подтвердить ${String(clean.length)} строк без замечаний (${String(fields.length)} полей) как есть? ` +
+        "Строки с замечаниями останутся на проверку.",
+    );
+    if (!ok) return;
+    setError(null);
+    setBulk({ done: 0, total: fields.length });
+    try {
+      for (const [index, f] of fields.entries()) {
+        const updated = await client.decideField(f.id, {
+          decision: "accept",
+          reason: "подтверждено списком: строка без замечаний",
+          expected_revision: f.revision,
+        });
+        setLines((prev) => (prev ? withField(prev, updated) : prev));
+        setBulk({ done: index + 1, total: fields.length });
+      }
+    } catch (e: unknown) {
+      setError(e);
+    } finally {
+      setBulk(null);
+      onReviewed?.();
+    }
+  }
 
   function select(id: string | null) {
     setSelectedId(id);
@@ -128,6 +172,52 @@ export function DocumentReview({ client, document, supplierName, onBack }: Props
         <p className="muted">Загрузка строк…</p>
       ) : (
         <>
+          <p className="meta" role="status">
+            Проверено {counts.checked} из {lines.length} · не проверено {counts.pending} · с
+            замечаниями {counts.attention}
+            {bulk ? ` · подтверждение: ${String(bulk.done)} из ${String(bulk.total)}` : ""}
+          </p>
+          {counts.attention > 0 ? (
+            <NextStep
+              title={`разберите строки с замечаниями (${String(counts.attention)})`}
+              action={{
+                label: "Показать строки с замечаниями",
+                onClick: () => {
+                  setFilter("attention");
+                },
+              }}
+              secondary={
+                counts.pending > 0
+                  ? {
+                      label: `Подтвердить строки без замечаний (${String(counts.pending)})`,
+                      onClick: () => void acceptClean(),
+                      disabled: bulk !== null,
+                    }
+                  : undefined
+              }
+            >
+              Выберите строку, сверьте поля с оригиналом справа и подтвердите или исправьте их.
+            </NextStep>
+          ) : counts.pending > 0 ? (
+            <NextStep
+              title={`подтвердите строки (${String(counts.pending)} без замечаний)`}
+              action={{
+                label: `Подтвердить строки без замечаний (${String(counts.pending)})`,
+                onClick: () => void acceptClean(),
+                disabled: bulk !== null,
+              }}
+              secondary={onNext ? { label: "Перейти к сопоставлению", onClick: onNext } : undefined}
+            >
+              Сверьте несколько строк с оригиналом; если всё верно — подтвердите остальные списком.
+            </NextStep>
+          ) : (
+            <NextStep
+              title="сопоставьте строки с товарами каталога"
+              action={onNext ? { label: "Перейти к сопоставлению", onClick: onNext } : undefined}
+            >
+              Все строки проверены.
+            </NextStep>
+          )}
           <div className="toolbar" role="group" aria-label="Фильтр и сортировка строк">
             <label>
               Показать
@@ -138,8 +228,9 @@ export function DocumentReview({ client, document, supplierName, onBack }: Props
                 }}
               >
                 <option value="all">Все строки ({lines.length})</option>
-                <option value="attention">Требуют внимания ({counts.attention})</option>
-                <option value="checked">Проверенные ({counts.checked})</option>
+                <option value="pending">Не проверено ({counts.pending})</option>
+                <option value="attention">С замечаниями ({counts.attention})</option>
+                <option value="checked">Проверено ({counts.checked})</option>
               </select>
             </label>
             <label>
@@ -259,6 +350,7 @@ export function DocumentReview({ client, document, supplierName, onBack }: Props
                           setFieldId(f.id);
                         }}
                         onChanged={(updated) => {
+                          onReviewed?.();
                           setLines((prev) => (prev ? withField(prev, updated) : prev));
                           setFieldId(updated.id);
                         }}

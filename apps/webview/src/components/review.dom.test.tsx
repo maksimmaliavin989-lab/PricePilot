@@ -73,7 +73,29 @@ describe("DocumentReview", () => {
     // Still selected, and the panel says so in text.
     expect(screen.getByRole("heading", { name: "Поля строки 9" })).toBeTruthy();
     expect(screen.getByText("Строка скрыта текущим фильтром, но остаётся выбранной.")).toBeTruthy();
-    expect(screen.getByText("Требует внимания", { selector: ".badge" })).toBeTruthy();
+    expect(screen.getByText("Есть замечания", { selector: ".badge" })).toBeTruthy();
+  });
+
+  it("counts unchecked lines separately and offers the next step", async () => {
+    render(
+      <DocumentReview
+        client={reviewClient(lines)}
+        document={DOC}
+        supplierName="ООО"
+        onBack={vi.fn()}
+        onNext={vi.fn()}
+      />,
+    );
+    await screen.findByRole("table", { name: "Извлечённые строки" });
+    const filter = screen.getByLabelText("Показать");
+    expect(within(filter).getByText("Не проверено (2)")).toBeTruthy();
+    expect(within(filter).getByText("С замечаниями (1)")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Проверено 0 из 3");
+    const next = screen.getByRole("region", { name: "Следующий шаг" });
+    expect(next.textContent).toContain("разберите строки с замечаниями (1)");
+    expect(
+      within(next).getByRole("button", { name: "Подтвердить строки без замечаний (2)" }),
+    ).toBeTruthy();
   });
 
   it("moves the selection with the arrow keys", async () => {

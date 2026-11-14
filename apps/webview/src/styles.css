@@ -515,3 +515,92 @@ tr[aria-selected] {
 .unknown {
   font-style: italic;
 }
+
+/* --- Main path and next step --- */
+.journey ol {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.journey-step button {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.journey-step button[aria-current="step"] {
+  outline: 2px solid var(--accent);
+}
+
+.journey-index {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.journey-done .journey-index {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+}
+
+.journey-next .journey-index {
+  border: 2px solid var(--accent);
+}
+
+.journey-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted, inherit);
+  opacity: 0.85;
+}
+
+.next-step {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.drawer-close {
+  justify-self: end;
+}
+
+@media (max-width: 960px) {
+  .review-side.drawer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 65vh;
+    overflow: auto;
+    z-index: 20;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 30%);
+  }
+}
+
+nav.journey {
+  display: block;
+  margin-bottom: 8px;
+}

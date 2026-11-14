@@ -156,7 +156,8 @@ class SkippedLineOut(BaseModel):
 
 class OfferImportOut(BaseModel):
     created: int
-    existing: int
+    existing: int = Field(description="Уже были и не изменились")
+    updated: int = Field(description="Уже были и обновлены по проверенной строке")
     skipped: list[SkippedLineOut]
 
 

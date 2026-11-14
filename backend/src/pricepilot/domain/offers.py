@@ -60,6 +60,28 @@ class SupplierOffer:
             pack=self.pack,
         )
 
+    def refreshed(self, current: SupplierOffer, now: datetime) -> SupplierOffer | None:
+        """The same offer re-read from its (since reviewed) line: name, SKU, unit, price and
+        its confirmation follow the line. A pack confirmed by the user is kept while the unit
+        is unchanged. ``None`` when nothing changed."""
+        pack = (
+            self.pack
+            if self.pack and self.pack.confirmed and self.unit == current.unit
+            else current.pack
+        )
+        updated = replace(
+            self,
+            name=current.name,
+            supplier_sku=current.supplier_sku,
+            unit=current.unit,
+            price=current.price,
+            price_confirmed=current.price_confirmed,
+            pack=pack,
+        )
+        if updated == self:
+            return None
+        return replace(updated, stamp=self.stamp.bumped(now))
+
     def with_pack(self, content: Quantity, now: datetime) -> SupplierOffer:
         if self.unit is None:
             raise DomainValidationError("unit", "У предложения нет единицы цены.")

@@ -98,8 +98,8 @@ export function ImportPanel({ client, workspace, suppliers, onImported }: Props)
       >
         <strong>{dragOver ? "Отпустите, чтобы импортировать" : "Перетащите файлы сюда"}</strong>
         <span className="meta">
-          или нажмите, чтобы выбрать. Обрабатываются CSV и XLSX; остальные форматы сохраняются с
-          понятной ошибкой. Файлы остаются на этом компьютере.
+          или нажмите, чтобы выбрать. XLSX, XLS, CSV, DOCX, PDF (и сканы), JPG, PNG, TIFF. Файлы
+          остаются на этом компьютере, оригинал не изменяется.
         </span>
       </div>
       <input

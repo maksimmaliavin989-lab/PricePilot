@@ -60,7 +60,8 @@ class OfferState:
 @dataclass(frozen=True, slots=True)
 class OfferImport:
     created: list[SupplierOffer]
-    existing: int
+    existing: int  # already there and unchanged
+    updated: int  # already there, refreshed from the reviewed line
     skipped: list[SkippedLine]
 
 
@@ -114,7 +115,8 @@ class OfferService:
 
     # --- offers ---------------------------------------------------------------------------
     def create_from_document(self, document_id: UUID) -> OfferImport:
-        """Offers from the latest run's lines. Idempotent: existing offers are kept."""
+        """Offers from the latest run's lines. Idempotent: an existing offer is not duplicated
+        but follows its line after review (confirmed or corrected price, unit, name)."""
         now = self._clock()
         with self._uow() as uow:
             document = uow.documents.get(document_id)
@@ -125,7 +127,10 @@ class OfferService:
                 raise InvalidStateError(
                     "source_document", run.status.value if run else "no_run", "offers"
                 )
-            existing = uow.offers.keys_for_document(document_id)
+            existing = {
+                (o.line_id, o.price_field_key): o for o in uow.offers.for_document(document_id)
+            }
+            updated = 0
             created: list[SupplierOffer] = []
             skipped: list[SkippedLine] = []
             kept = 0
@@ -145,25 +150,30 @@ class OfferService:
                         skipped.append(result)
                         continue
                     for offer in result:
-                        if (offer.line_id, offer.price_field_key) in existing:
-                            kept += 1
+                        known = existing.get((offer.line_id, offer.price_field_key))
+                        if known is not None:
+                            refreshed = known.refreshed(offer, now)
+                            if refreshed is None:
+                                kept += 1
+                            elif uow.offers.update(refreshed, known.stamp.version):
+                                updated += 1
                             continue
                         uow.offers.add(offer)
                         created.append(offer)
                 if lines.next_ordinal is None:
                     break
                 page = LinePageRequest(limit=MAX_PAGE_SIZE, after_ordinal=lines.next_ordinal)
-            if created:
+            if created or updated:
                 self._audit(
                     uow,
                     document.workspace_id,
                     "source_document",
                     document.id,
                     "offers_created",
-                    {"created": len(created), "skipped": len(skipped)},
+                    {"created": len(created), "updated": updated, "skipped": len(skipped)},
                 )
             uow.commit()
-        return OfferImport(created, kept, skipped)
+        return OfferImport(created, kept, updated, skipped)
 
     def _state(self, uow: UnitOfWork, offer: SupplierOffer) -> OfferState:
         decisions = uow.matches.for_offers([offer.id])[offer.id]

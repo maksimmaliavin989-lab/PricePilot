@@ -32,7 +32,8 @@ ServicesDep = Annotated[Services, Depends(services)]
     "/documents/{document_id}/offers",
     response_model=OfferImportOut,
     summary="Создать предложения из проверенных строк документа",
-    description="Идемпотентно: существующие предложения не дублируются. Строки без цены, "
+    description="Идемпотентно: существующие предложения не дублируются, а обновляются по "
+    "проверенной строке (подтверждённая или исправленная цена). Строки без цены, "
     "с отклонённым названием или с несколькими ценами без выбора пропускаются с причиной.",
 )
 def create_offers(document_id: UUID, svc: ServicesDep) -> OfferImportOut:
@@ -40,6 +41,7 @@ def create_offers(document_id: UUID, svc: ServicesDep) -> OfferImportOut:
     return OfferImportOut(
         created=len(result.created),
         existing=result.existing,
+        updated=result.updated,
         skipped=[SkippedLineOut.of(s) for s in result.skipped],
     )
 
